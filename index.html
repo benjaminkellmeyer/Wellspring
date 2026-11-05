@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- NOT REQUESTED: viewport meta tag (standard for mobile display) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- NOT REQUESTED: page title -->
+  <title>Event Request | Wellspring on Main</title>
+</head>
+<body>
+
+  <!-- NOT REQUESTED: page heading and intro text -->
+  <h1>Wellspring on Main</h1>
+  <h2>Arlington's Center for Community Engagement</h2>
+  <p>Fields marked with * are required.</p>
+
+  <!-- NOT REQUESTED: form action/method. Replace "#" with your real submission endpoint. -->
+  <form id="event-form" action="#" method="post">
+
+    <!-- category -->
+    <p>
+      <label for="category">Category *</label><br>
+      <select id="category" name="category" required>
+        <option value="">-- Select a category --</option>
+        <option value="public">Public</option>
+        <option value="private">Private</option>
+        <option value="tenant">Tenant</option>
+      </select>
+    </p>
+
+    <!-- type (value = backend value, text = frontend display) -->
+    <p>
+      <label for="type">Type *</label><br>
+      <select id="type" name="type" required>
+        <option value="">-- Select a type --</option>
+        <option value="wedding">Wedding</option>
+        <option value="birthday_party">Birthday Party</option>
+        <option value="corporate">Corporate</option>
+        <option value="community">Community</option>
+        <option value="non-profit">Non-Profit</option>
+        <option value="other">Other</option>
+      </select>
+    </p>
+
+    <!-- name -->
+    <p>
+      <label for="name">Event Name *</label><br>
+      <input type="text" id="name" name="name" maxlength="200" required>
+      <br><small>Maximum 200 characters.</small> <!-- NOT REQUESTED: helper text -->
+    </p>
+
+    <!-- start -->
+    <p>
+      <label for="start">Event Start *</label><br>
+      <input type="datetime-local" id="start" name="start" required>
+      <!-- Note: whether the time is actually available must be checked server-side against existing bookings. -->
+    </p>
+
+    <!-- end -->
+    <p>
+      <label for="end">Event End *</label><br>
+      <input type="datetime-local" id="end" name="end" required>
+      <br><small>Must be between 30 minutes and 8 hours after the start time.</small> <!-- NOT REQUESTED: helper text -->
+    </p>
+
+    <!-- attendance -->
+    <p>
+      <label for="attendance">Estimated Attendance *</label><br>
+      <input type="number" id="attendance" name="attendance" min="2" max="350" step="1" required>
+      <br><small>Between 2 and 350 people.</small> <!-- NOT REQUESTED: helper text -->
+      <!-- Note: "cannot exceed the capacity of the assigned room" must be enforced server-side, since the room is assigned after submission. -->
+    </p>
+
+    <!-- furniture (value = backend value, text = frontend display) -->
+    <p>
+      <label for="furniture">Furniture (optional)</label><br>
+      <select id="furniture" name="furniture[]" multiple size="5">
+        <option value="tables">Tables</option>
+        <option value="chairs">Chairs</option>
+        <option value="podium">Podium</option>
+        <option value="stage">Stage</option>
+        <option value="linens">Linens</option>
+      </select>
+      <br><small>Select any that apply. Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small> <!-- NOT REQUESTED: helper text -->
+    </p>
+
+    <!-- tech (value = backend value, text = frontend display) -->
+    <p>
+      <label for="tech">Tech (optional)</label><br>
+      <select id="tech" name="tech[]" multiple size="5">
+        <option value="projector">Projector</option>
+        <option value="microphone">Microphone</option>
+        <option value="speakers">Speakers</option>
+        <option value="wifi">WiFi</option>
+        <option value="screen">Screen</option>
+      </select>
+      <br><small>Select any that apply. Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small> <!-- NOT REQUESTED: helper text -->
+    </p>
+
+    <!-- catering (optional) -->
+    <p>
+      <label for="catering">Catering Notes (optional)</label><br>
+      <textarea id="catering" name="catering" rows="3" cols="50" maxlength="200"></textarea>
+      <br><small>Maximum 200 characters.</small> <!-- NOT REQUESTED: helper text -->
+    </p>
+
+    <!-- notes (optional) -->
+    <p>
+      <label for="notes">Other Notes (optional)</label><br>
+      <textarea id="notes" name="notes" rows="6" cols="50" maxlength="2000"></textarea>
+      <br><small>Furniture, tech, or other needs not listed above. Maximum 2000 characters.</small> <!-- NOT REQUESTED: helper text -->
+    </p>
+
+    <!-- NOT REQUESTED: submit button -->
+    <p>
+      <button type="submit">Submit Request</button>
+    </p>
+
+  </form>
+
+  <!-- NOT REQUESTED: small script enforcing the end-time window (HTML alone can't compare two fields).
+       Safe to delete; the same rule should still be validated server-side. -->
+  <script>
+    var startInput = document.getElementById('start');
+    var endInput = document.getElementById('end');
+
+    function checkEnd() {
+      endInput.setCustomValidity('');
+      if (!startInput.value || !endInput.value) return;
+      var diffMinutes = (new Date(endInput.value) - new Date(startInput.value)) / 60000;
+      if (diffMinutes < 30 || diffMinutes > 480) {
+        endInput.setCustomValidity('End time must be between 30 minutes and 8 hours after the start time.');
+      }
+    }
+
+    startInput.addEventListener('input', checkEnd);
+    endInput.addEventListener('input', checkEnd);
+  </script>
+
+</body>
+</html>
