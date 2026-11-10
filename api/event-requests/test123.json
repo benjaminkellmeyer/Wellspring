@@ -1,0 +1,15 @@
+{
+  "client_name": "Jordan Rivera",
+  "client_email": "jordan@example.com",
+  "request_id": 1042,
+  "name": "Rivera-Chen Wedding Reception",
+  "category": "private",
+  "type": "wedding",
+  "start": "2026-12-05T18:00",
+  "end": "2026-12-05T23:00",
+  "attendance": 120,
+  "furniture": ["tables", "chairs", "linens"],
+  "tech": ["microphone", "speakers"],
+  "catering": "Buffet style, two vegetarian entrees.",
+  "notes": "Need early access for decorating."
+}
