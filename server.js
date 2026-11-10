@@ -1,3 +1,33 @@
+import "dotenv/config";
+import express from "express";
+import { createClient } from "@supabase/supabase-js";
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_SECRET_KEY. Check your .env file.");
+  process.exit(1);
+}
+
+const app = express();
+const PORT = 3000;
+const TABLE = "maintenance_requests";
+const STATUSES = ["submitted", "in_progress", "completed"];
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY
+);
+
+app.use(express.json());
+app.use(express.static("public"));
+
+// Learning aid: print what each request carries. Remove before real use.
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  console.log("  Content-Type:", req.headers["content-type"]);
+  console.log("  Body:", req.body);
+  next();
+});
+
 const express = require('express');
 const path = require('node:path');
 const app = express();
