@@ -7,19 +7,6 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
   process.exit(1);
 }
 
-const app = express();
-const PORT = 3000;
-const TABLE = "maintenance_requests";
-const STATUSES = ["submitted", "in_progress", "completed"];
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY
-);
-
-app.use(express.json());
-app.use(express.static("public"));
-
 // Learning aid: print what each request carries. Remove before real use.
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -31,6 +18,14 @@ app.use((req, res, next) => {
 const express = require('express');
 const path = require('node:path');
 const app = express();
+const PORT = 3000;
+const TABLE = "maintenance_requests";
+const STATUSES = ["submitted", "in_progress", "completed"];
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY
+);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
