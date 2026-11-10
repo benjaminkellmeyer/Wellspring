@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Request Received | Wellspring on Main</title>
+</head>
+<body>
+
+  <h1>Wellspring on Main</h1>
+  <h2>Arlington's Center for Community Engagement</h2>
+
+  <!-- Shown only when JavaScript is disabled. -->
+  <noscript>
+    <p>
+      Your request has been received. Your summary can't be displayed without
+      JavaScript, but a copy was emailed to you. Please call us at
+      [Wellspring phone number] with any questions.
+    </p>
+  </noscript>
+
+  <!-- Loading state: revealed by the script on page load. -->
+  <p id="loading" hidden>Loading your summary...</p>
+
+  <!-- Error state: shown if the token is missing/invalid or the lookup fails. -->
+  <div id="error" hidden>
+    <p>
+      We couldn't load your event summary. If you submitted a request, a copy
+      was emailed to you. You can also call us at
+      <a id="error-phone-link" href="#"><span id="error-phone"></span></a>.
+    </p>
+  </div>
+
+  <!-- Main content: revealed only after the data has loaded successfully. -->
+  <div id="content" hidden>
+
+    <p>
+      Thank you <span id="client-name"></span> for partnering with us here at
+      Wellspring! A summary of your response has been emailed to
+      <span id="client-email"></span>, and feel free to call us if you have any
+      questions.
+    </p>
+
+    <p>Call us at: <a id="phone-link" href="#"><span id="phone"></span></a></p>
+
+    <h3>Event Summary</h3>
+
+    <dl>
+
+      <!-- OPTIONAL: Request number. Hidden unless the server returns a request_id. -->
+      <div id="row-request-id" hidden>
+        <dt>Request Number</dt>
+        <dd id="value-request-id"></dd>
+      </div>
+
+      <div>
+        <dt>Event Name</dt>
+        <dd id="value-name"></dd>
+      </div>
+
+      <div>
+        <dt>Category</dt>
+        <dd id="value-category"></dd>
+      </div>
+
+      <div>
+        <dt>Type</dt>
+        <dd id="value-type"></dd>
+      </div>
+
+      <div>
+        <dt>Start</dt>
+        <dd id="value-start"></dd>
+      </div>
+
+      <div>
+        <dt>End</dt>
+        <dd id="value-end"></dd>
+      </div>
+
+      <div>
+        <dt>Estimated Attendance</dt>
+        <dd id="value-attendance"></dd>
+      </div>
+
+      <!-- OPTIONAL rows: hidden unless the client filled them in. -->
+      <div id="row-furniture" hidden>
+        <dt>Furniture</dt>
+        <dd id="value-furniture"></dd>
+      </div>
+
+      <div id="row-tech" hidden>
+        <dt>Tech</dt>
+        <dd id="value-tech"></dd>
+      </div>
+
+      <div id="row-catering" hidden>
+        <dt>Catering Notes</dt>
+        <dd id="value-catering"></dd>
+      </div>
+
+      <div id="row-notes" hidden>
+        <dt>Other Notes</dt>
+        <dd id="value-notes"></dd>
+      </div>
+
+    </dl>
+
+  </div>
+
+  <!-- Exit link. A plain link works without JavaScript and is accessible by keyboard.
+       Replace the href with the main page of the workflow. -->
+  <p>
+    <a href="/">Return to Home</a>
+  </p>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ---------- Settings: update these for your environment ----------
+      var CONFIG = {
+        // Endpoint that returns one request by its token. The token is appended to this path.
+        apiBase: '/api/event-requests/',
+        // Placeholder: replace with the real Wellspring phone number.
+        phone: '000-000-0000'
+      };
+
+      // ---------- Friendly labels (backend value -> display text) ----------
+      var CATEGORY_LABELS = {
+        'public': 'Public',
+        'private': 'Private',
+        'tenant': 'Tenant'
+      };
+
+      var TYPE_LABELS = {
+        'wedding': 'Wedding',
+        'birthday_party': 'Birthday Party',
+        'corporate': 'Corporate',
+        'community': 'Community',
+        'non-profit': 'Non-Profit',
+        'other': 'Other'
+      };
+
+      var FURNITURE_LABELS = {
+        'tables': 'Tables',
+        'chairs': 'Chairs',
+        'podium': 'Podium',
+        'stage': 'Stage',
+        'linens': 'Linens'
+      };
+
+      var TECH_LABELS = {
+        'projector': 'Projector',
+        'microphone': 'Microphone',
+        'speakers': 'Speakers',
+        'wifi': 'WiFi',
+        'screen': 'Screen'
+      };
+
+      // ---------- Helpers ----------
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      // Falls back to the raw value if a label is missing, so nothing silently disappears.
+      function labelFor(map, value) {
+        return Object.prototype.hasOwnProperty.call(map, value) ? map[value] : value;
+      }
+
+      function labelList(map, values) {
+        if (!Array.isArray(values)) return '';
+        return values.map(function (v) { return labelFor(map, v); }).join(', ');
+      }
+
+      // Turns "2026-12-05T18:00" into "Saturday, December 5, 2026, 6:00 PM".
+      // A value with no time zone is read as local time, matching what the form collects.
+      function formatDateTime(value) {
+        var d = new Date(value);
+        if (!value || isNaN(d.getTime())) return value || '';
+        var datePart = d.toLocaleDateString('en-US', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        var timePart = d.toLocaleTimeString('en-US', {
+          hour: 'numeric', minute: '2-digit'
+        });
+        return datePart + ', ' + timePart;
+      }
+
+      function hasValue(value) {
+        return value !== undefined && value !== null && String(value).trim() !== '';
+      }
+
+      // Always uses textContent (never innerHTML) so client-typed text can't inject HTML or scripts.
+      function setText(id, value) {
+        $(id).textContent = hasValue(value) ? String(value) : '';
+      }
+
+      // Shows an optional row only when it has a value.
+      function setOptionalRow(rowId, valueId, value) {
+        var show = hasValue(value);
+        $(rowId).hidden = !show;
+        if (show) setText(valueId, value);
+      }
+
+      function setPhone(linkId, textId) {
+        $(textId).textContent = CONFIG.phone;
+        $(linkId).href = 'tel:' + CONFIG.phone.replace(/[^0-9+]/g, '');
+      }
+
+      function showError() {
+        $('loading').hidden = true;
+        $('content').hidden = true;
+        $('error').hidden = false;
+      }
+
+      function render(data) {
+        setText('client-name', data.client_name);
+        setText('client-email', data.client_email);
+        setPhone('phone-link', 'phone');
+
+        setOptionalRow('row-request-id', 'value-request-id', data.request_id);
+        setText('value-name', data.name);
+        setText('value-category', labelFor(CATEGORY_LABELS, data.category));
+        setText('value-type', labelFor(TYPE_LABELS, data.type));
+        setText('value-start', formatDateTime(data.start));
+        setText('value-end', formatDateTime(data.end));
+        setText('value-attendance', data.attendance);
+
+        setOptionalRow('row-furniture', 'value-furniture', labelList(FURNITURE_LABELS, data.furniture));
+        setOptionalRow('row-tech', 'value-tech', labelList(TECH_LABELS, data.tech));
+        setOptionalRow('row-catering', 'value-catering', data.catering);
+        setOptionalRow('row-notes', 'value-notes', data.notes);
+
+        $('loading').hidden = true;
+        $('error').hidden = true;
+        $('content').hidden = false;
+      }
+
+      // ---------- Load the request ----------
+      async function load() {
+        setPhone('error-phone-link', 'error-phone');
+        $('loading').hidden = false;
+
+        var token = new URLSearchParams(window.location.search).get('token');
+        if (!token) {
+          showError();
+          return;
+        }
+
+        try {
+          var response = await fetch(CONFIG.apiBase + encodeURIComponent(token), {
+            headers: { 'Accept': 'application/json' }
+          });
+          if (!response.ok) {
+            showError();
+            return;
+          }
+          var data = await response.json();
+          render(data);
+        } catch (err) {
+          showError();
+        }
+      }
+
+      load();
+    })();
+  </script>
+
+</body>
+</html>
