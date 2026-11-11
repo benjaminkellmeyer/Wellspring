@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event Requests – Admin</title>
+  <style>
+    /* Layout only: no colors, fonts, or decoration. */
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap
+    }
+
+    .edit {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px
+    }
+
+    .edit[hidden] {
+      display: none
+    }
+
+    .edit .wide {
+      grid-column: 1/-1
+    }
+
+    .edit .btns {
+      grid-column: 1/-1;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px
+    }
+
+    .filters[hidden] {
+      display: none
+    }
+
+    .actions button {
+      padding: 6px 16px;
+      border: 1px solid rgba(128, 128, 128, .7);
+      border-radius: 6px;
+      box-shadow: 0 2px 3px rgba(0, 0, 0, .3)
+    }
+
+    .actions button.on {
+      font-weight: bold;
+      background: rgba(128, 128, 128, .3);
+      box-shadow: inset 0 3px 6px rgba(0, 0, 0, .45);
+      transform: translateY(1px)
+    }
+
+    label {
+      display: flex;
+      flex-direction: column
+    }
+
+    .chk {
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      padding-top: 18px
+    }
+
+    .wrap {
+      overflow-x: auto
+    }
+
+    .bar {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .bar .chk {
+      padding-top: 0
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1000px
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      text-align: left;
+      white-space: nowrap
+    }
+
+    th,
+    tr.row {
+      cursor: pointer
+    }
+
+    tr.det td {
+      white-space: normal
+    }
+
+    .dg {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px 18px
+    }
+
+    .dg small {
+      display: block
+    }
+
+    .empty {
+      text-align: center
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Event Requests</h1>
+  <p class="sub">Admin view · sample data · click a column to sort, click a row for details</p>
+  <div class="actions">
+    <button id="bCreate" type="button" onclick="window.location.href='eventForm.html';">Create</button>
+    <button id="bRead" type="button">Read</button>
+    <button id="bUpdate" type="button">Update</button>
+  </div>
+  <div class="edit" id="edit" hidden>
+    <label class="wide">Request to update<select id="eid"></select></label>
+    <label>Name<input id="f_name" maxlength="200"></label>
+    <label>Category<select id="f_cat"></select></label>
+    <label>Type<input id="f_type"></label>
+    <label>Client (C_id)<input id="f_c" type="number" min="1"></label>
+    <label>Coordinator (Co_id)<input id="f_co" type="number" min="1"></label>
+    <label>Room (R_id, blank = none)<input id="f_r" type="number" min="1"></label>
+    <label>Start<input id="f_s" type="datetime-local"></label>
+    <label>End<input id="f_e" type="datetime-local"></label>
+    <label>Attendance (2–350)<input id="f_att" type="number" min="2" max="350"></label>
+    <label>Space sq ft (50–5000, optional)<input id="f_sq" type="number" min="50" max="5000"></label>
+    <label>Priority<select id="f_pri"></select></label>
+    <label>Status<select id="f_st"></select></label>
+    <label>Furniture<input id="f_fur"></label>
+    <label>Technology<input id="f_tech"></label>
+    <label>Catering<input id="f_cater" maxlength="200"></label>
+    <label class="wide">Notes<textarea id="f_notes" rows="3" maxlength="2000"></textarea></label>
+    <div class="btns">
+      <button id="bSave" type="button">Save changes</button>
+      <button id="bCancel" type="button">Cancel</button>
+      <span id="msg" role="status"></span>
+    </div>
+  </div>
+  <div class="filters">
+    <label>Search<input id="q" placeholder="Name, type, notes, ID"></label>
+    <label>Category<select id="cat"></select></label>
+    <label>Type<select id="type"></select></label>
+    <label>Status<select id="st"></select></label>
+    <label>Priority<select id="pri"></select></label>
+    <label>Room<select id="room"></select></label>
+    <label>Coordinator<select id="co"></select></label>
+    <label>Min attendance<input id="amin" type="number" min="2" max="350"></label>
+    <label>Starts on/after<input id="d1" type="date"></label>
+    <label>Starts on/before<input id="d2" type="date"></label>
+    <label>Sort by<select id="sort"></select></label>
+    <label class="chk"><input id="arc" type="checkbox"> Show archived</label>
+    <label class="chk"><button id="reset" type="button">Reset filters</button></label>
+  </div>
+  <div class="bar"><span id="count"></span> <label class="chk"><input id="showTbl" type="checkbox"> Show
+      database</label></div>
+  <div class="wrap" id="tblwrap" hidden>
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    var PR = ['urgent', 'high', 'medium', 'low'],
+      ST = ['submitted', 'in_progress', 'scheduled', 'declined', 'cancelled', 'needs_followup', 'completed'],
+      CAT = ['public', 'private', 'tenant'];
+    var D = [
+      { id: 101, c: 4, co: 1, r: 2, cat: 'private', type: 'wedding', name: 'Garcia–Lee wedding reception', sq: 3200, s: '2026-11-14T16:00', e: '2026-11-14T23:00', att: 120, fur: 'Round tables, chairs, dance floor', tech: 'Microphone, speakers', cater: 'Buffet for 120', notes: 'Wants string lights on the courtyard side.', pri: 'high', st: 'in_progress', cr: '2026-10-01T09:12', ar: null },
+      { id: 102, c: 5, co: 2, r: 1, cat: 'private', type: 'birthday party', name: 'Kid’s 8th birthday', sq: 900, s: '2026-11-21T13:00', e: '2026-11-21T16:00', att: 25, fur: 'Long tables, folding chairs', tech: 'Bluetooth speaker', cater: 'Cake and juice', notes: '', pri: 'low', st: 'submitted', cr: '2026-10-03T14:40', ar: null },
+      { id: 103, c: 6, co: 3, r: 2, cat: 'public', type: 'fundraiser', name: 'Autumn silent auction', sq: 2800, s: '2026-12-05T18:00', e: '2026-12-05T22:00', att: 150, fur: 'Display tables, chairs', tech: 'Projector, microphone', cater: 'Appetizers and drinks', notes: 'Needs 12 display tables for auction items.', pri: 'urgent', st: 'needs_followup', cr: '2026-10-05T10:05', ar: null },
+      { id: 104, c: 7, co: 4, r: 3, cat: 'tenant', type: 'workshop', name: 'Tenant pottery workshop', sq: 700, s: '2026-11-10T10:00', e: '2026-11-10T12:30', att: 14, fur: 'Workbenches', tech: 'Speaker', cater: '', notes: 'Floor protection needed.', pri: 'medium', st: 'scheduled', cr: '2026-10-06T08:30', ar: null },
+      { id: 105, c: 8, co: 5, r: null, cat: 'private', type: 'corporate meeting', name: 'Quarterly team offsite', sq: 1200, s: '2026-12-02T09:00', e: '2026-12-02T15:00', att: 40, fur: 'Conference tables, chairs', tech: 'Projector, video conferencing', cater: 'Lunch boxes', notes: 'Room not assigned yet.', pri: 'medium', st: 'submitted', cr: '2026-10-08T16:20', ar: null },
+      { id: 106, c: 4, co: 2, r: 3, cat: 'public', type: 'workshop', name: 'Community resume clinic', sq: 600, s: '2026-11-18T17:30', e: '2026-11-18T19:30', att: 20, fur: 'Desks, chairs', tech: 'Wi-Fi, printer', cater: '', notes: '', pri: 'low', st: 'completed', cr: '2026-09-28T11:00', ar: '2026-10-20T09:00' },
+      { id: 107, c: 5, co: 3, r: 2, cat: 'private', type: 'wedding', name: 'Okafor engagement party', sq: 2500, s: '2026-12-12T17:00', e: '2026-12-12T22:30', att: 90, fur: 'Cocktail tables, lounge seating', tech: 'DJ setup', cater: 'Cocktails and small plates', notes: 'Client prefers phone contact.', pri: 'high', st: 'scheduled', cr: '2026-10-09T13:15', ar: null },
+      { id: 108, c: 6, co: 4, r: 1, cat: 'tenant', type: 'meeting', name: 'Tenant association meeting', sq: 500, s: '2026-11-12T18:00', e: '2026-11-12T19:30', att: 30, fur: 'Chairs, podium', tech: 'Microphone', cater: '', notes: '', pri: 'medium', st: 'declined', cr: '2026-10-10T09:45', ar: null },
+      { id: 109, c: 7, co: 5, r: 2, cat: 'public', type: 'fundraiser', name: 'Winter gala', sq: 4800, s: '2027-01-23T18:00', e: '2027-01-24T00:00', att: 300, fur: 'Round tables, stage, chairs', tech: 'Lighting, sound system, projector', cater: 'Plated dinner for 300', notes: 'Waiting on room capacity confirmation.', pri: 'urgent', st: 'in_progress', cr: '2026-10-12T15:00', ar: null },
+      { id: 110, c: 8, co: 1, r: 1, cat: 'private', type: 'birthday party', name: '60th birthday dinner', sq: 1100, s: '2026-11-29T18:00', e: '2026-11-29T22:00', att: 45, fur: 'Banquet tables', tech: 'Slideshow screen', cater: 'Family-style dinner', notes: 'Client cancelled by email.', pri: 'low', st: 'cancelled', cr: '2026-10-13T12:10', ar: '2026-10-25T10:00' },
+      { id: 111, c: 4, co: 3, r: 3, cat: 'tenant', type: 'workshop', name: 'Yoga for tenants', sq: 450, s: '2026-11-17T07:30', e: '2026-11-17T08:30', att: 12, fur: 'Folding chairs', tech: 'Speaker', cater: '', notes: '', pri: 'low', st: 'scheduled', cr: '2026-10-15T08:05', ar: null },
+      { id: 112, c: 5, co: 4, r: 2, cat: 'public', type: 'concert', name: 'Local jazz evening', sq: 3000, s: '2026-12-19T19:00', e: '2026-12-19T22:00', att: 180, fur: 'Theater seating, stage', tech: 'Sound system, lighting', cater: 'Cash bar', notes: 'Need load-in at 3 pm.', pri: 'medium', st: 'needs_followup', cr: '2026-10-18T17:25', ar: null }
+    ];
+    var $ = function (i) { return document.getElementById(i) };
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+    function fmt(s) { return s ? new Date(s).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
+    function lab(s) { return String(s).replace(/_/g, ' ') }
+    function uniq(k) { return D.map(function (x) { return x[k] }).filter(function (v, i, a) { return v != null && a.indexOf(v) === i }).sort(function (a, b) { return a > b ? 1 : -1 }) }
+    function opts(el, all, arr) { el.innerHTML = (all ? '<option value="">' + all + '</option>' : '') + arr.map(function (v) { return '<option value="' + esc(v) + '">' + esc(lab(v)) + '</option>' }).join('') }
+    function buildFilters() {
+      var keep = { type: $('type').value, room: $('room').value, co: $('co').value };
+      opts($('type'), 'All types', uniq('type'));
+      opts($('room'), 'All rooms', uniq('r').map(String)); $('room').innerHTML += '<option value="none">No room assigned</option>';
+      opts($('co'), 'All coordinators', uniq('co').map(String));
+      ['type', 'room', 'co'].forEach(function (k) { $(k).value = keep[k] });
+    }
+    opts($('cat'), 'All categories', CAT); opts($('st'), 'All statuses', ST); opts($('pri'), 'All priorities', PR); buildFilters();
+    opts($('f_cat'), '', CAT); opts($('f_pri'), '', PR); opts($('f_st'), '', ST);
+    var COLS = [['id', 'E_id'], ['name', 'E_name'], ['cat', 'Category'], ['type', 'Type'], ['c', 'Client'], ['co', 'Coord.'], ['r', 'Room'], ['s', 'Start'], ['e', 'End'], ['att', 'Guests'], ['sq', 'Sq ft'], ['pri', 'Priority'], ['st', 'Status'], ['cr', 'Created'], ['ar', 'Archived']];
+    var SORTS = [['s:asc', 'Start (soonest)'], ['s:desc', 'Start (latest)'], ['cr:desc', 'Created (newest)'], ['cr:asc', 'Created (oldest)'], ['pri:asc', 'Priority (highest first)'], ['st:asc', 'Status'], ['att:desc', 'Attendance (largest)'], ['name:asc', 'Name A–Z']];
+    $('sort').innerHTML = SORTS.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>' }).join('');
+    var key = 's', dir = 1, selId = null, openRows = {};
+    function rank(k, v) { if (k === 'pri') return PR.indexOf(v); if (k === 'st') return ST.indexOf(v); return v }
+    function filtered() {
+      var q = $('q').value.toLowerCase(), f = { cat: $('cat').value, type: $('type').value, st: $('st').value, pri: $('pri').value, room: $('room').value, co: $('co').value };
+      var amin = +$('amin').value || 0, d1 = $('d1').value, d2 = $('d2').value, arc = $('arc').checked;
+      return D.filter(function (x) {
+        if (!arc && x.ar) return false;
+        if (f.cat && x.cat !== f.cat) return false; if (f.type && x.type !== f.type) return false;
+        if (f.st && x.st !== f.st) return false; if (f.pri && x.pri !== f.pri) return false;
+        if (f.co && String(x.co) !== f.co) return false;
+        if (f.room === 'none') { if (x.r != null) return false } else if (f.room && String(x.r) !== f.room) return false;
+        if (x.att < amin) return false;
+        if (d1 && x.s.slice(0, 10) < d1) return false; if (d2 && x.s.slice(0, 10) > d2) return false;
+        if (q && (x.name + ' ' + x.type + ' ' + x.notes + ' ' + x.fur + ' ' + x.tech + ' ' + x.id).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+    }
+    function render() {
+      var rows = filtered().sort(function (a, b) {
+        var x = rank(key, a[key]), y = rank(key, b[key]);
+        if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+        return (x > y ? 1 : x < y ? -1 : 0) * dir;
+      });
+      $('thead').innerHTML = '<tr>' + COLS.map(function (c) { return '<th data-k="' + c[0] + '" class="' + (c[0] === key ? 'on' : '') + '">' + c[1] + (c[0] === key ? ' <span class="ar">' + (dir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>' }).join('') + '</tr>';
+      $('tbody').innerHTML = rows.length ? rows.map(function (x) {
+        return '<tr class="row' + (x.ar ? ' arch' : '') + (x.id === selId ? ' sel' : '') + '" data-id="' + x.id + '"><td>' + x.id + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.cat) + '</td><td>' + esc(x.type) + '</td><td>' + x.c + '</td><td>' + x.co + '</td><td>' + (x.r == null ? '—' : x.r) + '</td><td>' + fmt(x.s) + '</td><td>' + fmt(x.e) + '</td><td>' + x.att + '</td><td>' + (x.sq == null ? '—' : x.sq) + '</td><td>' + esc(lab(x.pri)) + '</td><td>' + esc(lab(x.st)) + '</td><td>' + fmt(x.cr) + '</td><td>' + fmt(x.ar) + '</td></tr>' +
+          '<tr class="det" id="d' + x.id + '"' + (openRows[x.id] ? '' : ' hidden') + '><td colspan="15"><div class="dg"><div><small>Furniture</small>' + esc(x.fur || '—') + '</div><div><small>Technology</small>' + esc(x.tech || '—') + '</div><div><small>Catering</small>' + esc(x.cater || '—') + '</div><div><small>Notes</small>' + esc(x.notes || '—') + '</div></div></td></tr>';
+      }).join('') : '<tr><td colspan="15" class="empty">No event requests match these filters.</td></tr>';
+      $('count').textContent = rows.length + ' of ' + D.length + ' requests shown';
+    }
+    document.querySelector('.filters').addEventListener('input', function (e) {
+      if (e.target.id === 'sort') { var p = e.target.value.split(':'); key = p[0]; dir = p[1] === 'asc' ? 1 : -1 }
+      render();
+    });
+    $('thead').addEventListener('click', function (e) {
+      var th = e.target.closest('th'); if (!th) return;
+      var k = th.getAttribute('data-k'); if (k === key) dir = -dir; else { key = k; dir = 1 }
+      $('sort').value = ''; render();
+    });
+    $('tbody').addEventListener('click', function (e) {
+      var tr = e.target.closest('tr.row'); if (!tr) return;
+      var id = +tr.getAttribute('data-id');
+      openRows[id] = !openRows[id]; selId = id;
+      if (!$('edit').hidden) loadForm(id);
+      render();
+    });
+    $('reset').addEventListener('click', function () {
+      ['q', 'amin', 'd1', 'd2'].forEach(function (i) { $(i).value = '' });
+      ['cat', 'type', 'st', 'pri', 'room', 'co'].forEach(function (i) { $(i).value = '' });
+      $('arc').checked = false; $('sort').value = 's:asc'; key = 's'; dir = 1; render();
+    });
+
+    /* ---- Create / Read / Update ---- */
+    // Create is a placeholder for now (no handler yet).
+    // Read shows/hides the filters and the update panel; active filters stay applied while hidden.
+    $('bRead').addEventListener('click', function () {
+      var f = document.querySelector('.filters');
+      if (f.hidden) f.hidden = false;            // show filters (update panel left as is)
+      else if (!$('edit').hidden) $('edit').hidden = true; // update open: keep filters, close update
+      else f.hidden = true;                    // plain read mode: hide filters
+      syncBtns();
+    });
+    function get(id) { for (var i = 0; i < D.length; i++)if (D[i].id === id) return D[i]; return null }
+    var MAP = { name: 'name', cat: 'cat', type: 'type', c: 'c', co: 'co', r: 'r', s: 's', e: 'e', att: 'att', sq: 'sq', pri: 'pri', st: 'st', fur: 'fur', tech: 'tech', cater: 'cater', notes: 'notes' };
+    function fillPick() {
+      $('eid').innerHTML = D.map(function (x) { return '<option value="' + x.id + '">#' + x.id + ' – ' + esc(x.name) + '</option>' }).join('');
+      $('eid').value = selId;
+    }
+    function loadForm(id) {
+      var x = get(id); if (!x) return;
+      selId = id; $('eid').value = id; $('msg').textContent = '';
+      Object.keys(MAP).forEach(function (k) { $('f_' + k).value = x[k] == null ? '' : x[k] });
+    }
+    function syncBtns() {
+      var f = !document.querySelector('.filters').hidden, u = !$('edit').hidden;
+      $('bRead').classList.toggle('on', f); $('bRead').setAttribute('aria-pressed', f);
+      $('bUpdate').classList.toggle('on', u); $('bUpdate').setAttribute('aria-pressed', u);
+    }
+    function showEdit(show) {
+      $('edit').hidden = !show;
+      if (show) { if (selId == null) selId = D[0].id; fillPick(); loadForm(selId) }
+      syncBtns();
+    }
+    $('bUpdate').addEventListener('click', function () { showEdit($('edit').hidden) });
+    $('bCancel').addEventListener('click', function () { showEdit(false) });
+    $('eid').addEventListener('change', function () { selId = +$('eid').value; loadForm(selId); render() });
+    $('bSave').addEventListener('click', function () {
+      var x = get(+$('eid').value); if (!x) return;
+      var v = {}; Object.keys(MAP).forEach(function (k) { v[k] = $('f_' + k).value });
+      var err = '';
+      v.name = v.name.trim(); v.type = v.type.trim();
+      if (!v.name) err = 'Name is required.';
+      else if (!v.type) err = 'Type is required.';
+      else if (!(+v.c > 0) || !(+v.co > 0)) err = 'Client and coordinator IDs are required.';
+      else if (!v.s || !v.e) err = 'Start and end are required.';
+      else if (!(v.e > v.s)) err = 'End must be after start.';
+      else if (!(+v.att >= 2 && +v.att <= 350)) err = 'Attendance must be 2–350.';
+      else if (v.sq !== '' && !(+v.sq >= 50 && +v.sq <= 5000)) err = 'Space must be 50–5000 sq ft.';
+      if (err) { $('msg').textContent = err; return }
+      x.name = v.name; x.cat = v.cat; x.type = v.type; x.c = +v.c; x.co = +v.co;
+      x.r = v.r === '' ? null : +v.r; x.s = v.s; x.e = v.e; x.att = Math.round(+v.att);
+      x.sq = v.sq === '' ? null : +v.sq; x.pri = v.pri; x.st = v.st;
+      x.fur = v.fur; x.tech = v.tech; x.cater = v.cater; x.notes = v.notes;
+      selId = x.id; buildFilters(); fillPick(); render();
+      $('msg').textContent = 'Saved changes to #' + x.id + '.';
+    });
+    $('showTbl').addEventListener('change', function () { $('tblwrap').hidden = !this.checked });
+    $('tblwrap').hidden = !$('showTbl').checked;
+    $('sort').value = 's:asc'; render(); syncBtns();
+  </script>
+</body>
+
+</html>
