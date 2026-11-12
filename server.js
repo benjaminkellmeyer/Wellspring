@@ -8,7 +8,6 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
 }
 
 const app = express();
-const PORT = 3000;
 const TABLE = "maintenance_requests";
 const STATUSES = ["submitted", "in_progress", "completed"];
 
@@ -19,3 +18,9 @@ const supabase = createClient(
 
 app.use(express.json());
 app.use(express.static("public"));
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
