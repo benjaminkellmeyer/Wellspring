@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true })); // parses the HTML form (and fu
 app.use(express.json());
 app.use(express.static('public'));
  
-const TABLE = 'event_requests';
+const TABLE = 'event';
  
 // Allowed values (must match the <option value="..."> entries in the form)
 const CATEGORIES = ['public', 'private', 'tenant'];
@@ -49,15 +49,15 @@ function parseLocal(value) {
 function validateEventRequest(body = {}) {
   const errors = [];
  
-  const category = String(body.category ?? '');
-  if (!CATEGORIES.includes(category)) errors.push('Choose a valid category.');
+  const e_category = String(body.category ?? '');
+  if (!CATEGORIES.includes(e_category)) errors.push('Choose a valid category.');
  
-  const type = String(body.type ?? '');
-  if (!TYPES.includes(type)) errors.push('Choose a valid event type.');
+  const e_type = String(body.type ?? '');
+  if (!TYPES.includes(e_type)) errors.push('Choose a valid event type.');
  
-  const name = String(body.name ?? '').trim();
-  if (!name) errors.push('Event name is required.');
-  if (name.length > 200) errors.push('Event name must be 200 characters or fewer.');
+  const e_name = String(body.name ?? '').trim();
+  if (!e_name) errors.push('Event name is required.');
+  if (e_name.length > 200) errors.push('Event name must be 200 characters or fewer.');
  
   const startMs = parseLocal(body.start);
   const endMs = parseLocal(body.end);
@@ -70,35 +70,36 @@ function validateEventRequest(body = {}) {
     }
   }
  
-  const attendance = Number(body.attendance);
-  if (!Number.isInteger(attendance) || attendance < 2 || attendance > 350) {
+  const e_attendance = Number(body.attendance);
+  if (!Number.isInteger(e_attendance) || e_attendance < 2 || e_attendance > 350) {
     errors.push('Attendance must be a whole number between 2 and 350.');
   }
  
-  const furniture = toList(body['furniture[]'] ?? body.furniture);
-  if (!furniture.every((f) => FURNITURE.includes(f))) errors.push('Invalid furniture selection.');
+  const e_furniture = toList(body['e_furniture[]'] ?? body.e_furniture);
+  if (!e_furniture.every((f) => FURNITURE.includes(f))) errors.push('Invalid furniture selection.');
  
-  const tech = toList(body['tech[]'] ?? body.tech);
-  if (!tech.every((t) => TECH.includes(t))) errors.push('Invalid tech selection.');
+  const e_tech = toList(body['tech[]'] ?? body.tech);
+  if (!e_tech.every((t) => TECH.includes(t))) errors.push('Invalid tech selection.');
  
-  const catering = String(body.catering ?? '').trim();
-  if (catering.length > 200) errors.push('Catering notes must be 200 characters or fewer.');
+  const e_catering = String(body.catering ?? '').trim();
+  if (e_catering.length > 200) errors.push('Catering notes must be 200 characters or fewer.');
  
-  const notes = String(body.notes ?? '').trim();
-  if (notes.length > 2000) errors.push('Notes must be 2000 characters or fewer.');
+  const e_notes = String(body.notes ?? '').trim();
+  if (e_notes.length > 2000) errors.push('Notes must be 2000 characters or fewer.');
  
   // Only these fields ever reach the database. Column names are on the left; rename to match your table.
   const clean = {
     e_category,
+    //this is stupid but I might just hardcode the coordinator? and/or the client? room shouldn't be too hard but... idk
     e_type,
     e_name,
-    e_start_time: body.start,
-    e_end_time: body.end,
+    e_start: body.start,
+    e_end: body.end,
     e_attendance,
-    e_furniture: [...new Set(furniture)],
-    e_tech: [...new Set(tech)],
-    e_catering: catering || null,
-    e_notes: notes || null,
+    e_furniture: [...new Set(e_furniture)],
+    e_tech: [...new Set(e_tech)],
+    e_catering: e_catering || null,
+    e_notes: e_notes || null,
   };
  
   return { errors, clean };
@@ -131,8 +132,8 @@ app.post('/api/event-requests', async (req, res) => {
     const { data: conflicts, error: conflictError } = await supabase
       .from(TABLE)
       .select('id')
-      .lt('start_time', clean.end_time)
-      .gt('end_time', clean.start_time)
+      .lt('e_start_time', clean.end_time)
+      .gt('e_end_time', clean.start_time)
       .limit(1);
  
     if (conflictError) {
