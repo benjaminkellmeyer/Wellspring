@@ -5,6 +5,8 @@ const log = document.getElementById("log");
 const nextStatus = { submitted: "in_progress", in_progress: "completed" };
 
 // One helper sends every request and shows the reply
+app.use(express.urlencoded({ extended: true }));
+
 async function send(method, url, body, showLog = true) {
   let res;
   try {
