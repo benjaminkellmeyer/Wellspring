@@ -41,6 +41,14 @@
       questions.
     </p>
 
+    <p id="co-message"></p>
+<script>
+  var coId = new URLSearchParams(window.location.search).get('co_id');
+  if (['1', '2', '3'].includes(coId)) {
+    document.getElementById('co-message').textContent = 'You have been assigned to co_id ' + coId + '.';
+  }
+</script>
+
     <p>Call us at: <a id="phone-link" href="#"><span id="phone"></span></a></p>
 
     <h3>Event Summary</h3>

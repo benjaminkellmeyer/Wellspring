@@ -17,6 +17,19 @@
   <!-- NOT REQUESTED: form action/method. Replace "#" with your real submission endpoint. -->
    <form id="event-form" action="/api/event-requests" method="post">
 
+    <!-- client (value = c_id saved to the database, text = client name shown to the user) -->
+<p>
+  <label for="client">Client *</label><br>
+  <select id="client" name="client" required>
+    <option value="">-- Select a client --</option>
+    <option value="4">Lone Star Events Co</option>
+    <option value="5">North Texas Food Alliance</option>
+    <option value="6">City of Arlington Parks</option>
+    <option value="7">Jamie Rivera</option>
+    <option value="8">Riverbend Neighborhood HOA</option>
+  </select>
+</p>
+
     <!-- category -->
     <p>
       <label for="category">Category *</label><br>
@@ -70,6 +83,22 @@
       <br><small>Between 2 and 350 people.</small> <!-- NOT REQUESTED: helper text -->
       <!-- Note: "cannot exceed the capacity of the assigned room" must be enforced server-side, since the room is assigned after submission. -->
     </p>
+
+    <!-- room (value = r_id saved to the database, text = what the user sees) -->
+<p>
+  <label for="room">Room *</label><br>
+  <select id="room" name="room" required>
+    <option value="">-- Select a room --</option>
+    <option value="1">Grand Ballroom (up to 300)</option>
+    <option value="2" disabled>Conference Hall A (Under Renovation)</option>
+    <option value="3" disabled>Meeting Room 101 (Occupied)</option>
+    <option value="4" disabled>Auditorium (Closed)</option>
+    <option value="8">Wellspring Hall (up to 350)</option>
+    <option value="9">Garden Pavilion (up to 120)</option>
+    <option value="10" disabled>Lakeside Conference Room (Closed)</option>
+  </select>
+  <br><small>Greyed-out rooms are not currently available.</small>
+</p>
 
     <!-- furniture (value = backend value, text = frontend display) -->
     <p>
