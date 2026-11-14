@@ -1,7 +1,6 @@
-
 <!DOCTYPE html>
 <html lang="en">
- 
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,21 +12,21 @@
       gap: 10px;
       flex-wrap: wrap
     }
- 
+
     .edit {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 10px
     }
- 
+
     .edit[hidden] {
       display: none
     }
- 
+
     .edit .wide {
       grid-column: 1/-1
     }
- 
+
     .edit .btns {
       grid-column: 1/-1;
       display: flex;
@@ -35,96 +34,96 @@
       align-items: center;
       flex-wrap: wrap
     }
- 
+
     .filters {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 10px
     }
- 
+
     .filters[hidden] {
       display: none
     }
- 
+
     .actions button {
       padding: 6px 16px;
       border: 1px solid rgba(128, 128, 128, .7);
       border-radius: 6px;
       box-shadow: 0 2px 3px rgba(0, 0, 0, .3)
     }
- 
+
     .actions button.on {
       font-weight: bold;
       background: rgba(128, 128, 128, .3);
       box-shadow: inset 0 3px 6px rgba(0, 0, 0, .45);
       transform: translateY(1px)
     }
- 
+
     label {
       display: flex;
       flex-direction: column
     }
- 
+
     .chk {
       flex-direction: row;
       align-items: center;
       gap: 6px;
       padding-top: 18px
     }
- 
+
     .wrap {
       overflow-x: auto
     }
- 
+
     .bar {
       display: flex;
       gap: 14px;
       align-items: center;
       flex-wrap: wrap
     }
- 
+
     .bar .chk {
       padding-top: 0
     }
- 
+
     table {
       border-collapse: collapse;
       width: 100%;
       min-width: 1000px
     }
- 
+
     th,
     td {
       padding: 9px 10px;
       text-align: left;
       white-space: nowrap
     }
- 
+
     th,
     tr.row {
       cursor: pointer
     }
- 
+
     tr.det td {
       white-space: normal
     }
- 
+
     .dg {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 8px 18px
     }
- 
+
     .dg small {
       display: block
     }
- 
+
     .empty {
       text-align: center
     }
   </style>
 </head>
- 
+
 <body>
   <!-- ADDED: role selector. Until a role is chosen, this dropdown is the only thing shown on the page. -->
   <p>
@@ -147,7 +146,7 @@
   </p>
   <p id="roleBanner"></p>
   <p id="roleMsg" role="status"></p>
- 
+
   <!-- ADDED: wrapper (closed just before the <script> tag). Hidden until a role is selected; nothing inside it was changed. -->
   <main id="app" hidden>
   <h1>Event Requests</h1>
@@ -206,7 +205,7 @@
   </div>
   </main>
   <!-- END of ADDED wrapper -->
- 
+
   <script>
     var PR = ['urgent', 'high', 'medium', 'low'],
       ST = ['submitted', 'in_progress', 'scheduled', 'declined', 'cancelled', 'needs_followup', 'completed'],
@@ -229,7 +228,9 @@
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
     function fmt(s) { return s ? new Date(s).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
     function lab(s) { return String(s).replace(/_/g, ' ') }
-    function uniq(k) { return D.map(function (x) { return x[k] }).filter(function (v, i, a) { return v != null && a.indexOf(v) === i }).sort(function (a, b) { return a > b ? 1 : -1 }) }
+    /* ALTERED: uses scoped() instead of D so the Type/Room/Coordinator filter lists only contain values from
+       requests the current user is allowed to see (otherwise a client would see other clients' values). */
+    function uniq(k) { return scoped().map(function (x) { return x[k] }).filter(function (v, i, a) { return v != null && a.indexOf(v) === i }).sort(function (a, b) { return a > b ? 1 : -1 }) }
     function opts(el, all, arr) { el.innerHTML = (all ? '<option value="">' + all + '</option>' : '') + arr.map(function (v) { return '<option value="' + esc(v) + '">' + esc(lab(v)) + '</option>' }).join('') }
     function buildFilters() {
       var keep = { type: $('type').value, room: $('room').value, co: $('co').value };
@@ -248,7 +249,9 @@
     function filtered() {
       var q = $('q').value.toLowerCase(), f = { cat: $('cat').value, type: $('type').value, st: $('st').value, pri: $('pri').value, room: $('room').value, co: $('co').value };
       var amin = +$('amin').value || 0, d1 = $('d1').value, d2 = $('d2').value, arc = $('arc').checked;
-      return D.filter(function (x) {
+      /* ALTERED: filters scoped() instead of D, so a client only ever gets their own requests
+         (coordinators get everything). The rest of this function is unchanged. */
+      return scoped().filter(function (x) {
         if (!arc && x.ar) return false;
         if (f.cat && x.cat !== f.cat) return false; if (f.type && x.type !== f.type) return false;
         if (f.st && x.st !== f.st) return false; if (f.pri && x.pri !== f.pri) return false;
@@ -271,7 +274,8 @@
         return '<tr class="row' + (x.ar ? ' arch' : '') + (x.id === selId ? ' sel' : '') + '" data-id="' + x.id + '"><td>' + x.id + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.cat) + '</td><td>' + esc(x.type) + '</td><td>' + x.c + '</td><td>' + x.co + '</td><td>' + (x.r == null ? '—' : x.r) + '</td><td>' + fmt(x.s) + '</td><td>' + fmt(x.e) + '</td><td>' + x.att + '</td><td>' + (x.sq == null ? '—' : x.sq) + '</td><td>' + esc(lab(x.pri)) + '</td><td>' + esc(lab(x.st)) + '</td><td>' + fmt(x.cr) + '</td><td>' + fmt(x.ar) + '</td></tr>' +
           '<tr class="det" id="d' + x.id + '"' + (openRows[x.id] ? '' : ' hidden') + '><td colspan="15"><div class="dg"><div><small>Furniture</small>' + esc(x.fur || '—') + '</div><div><small>Technology</small>' + esc(x.tech || '—') + '</div><div><small>Catering</small>' + esc(x.cater || '—') + '</div><div><small>Notes</small>' + esc(x.notes || '—') + '</div></div></td></tr>';
       }).join('') : '<tr><td colspan="15" class="empty">No event requests match these filters.</td></tr>';
-      $('count').textContent = rows.length + ' of ' + D.length + ' requests shown';
+      // ALTERED: the total now counts only the requests this user can see (it used D.length, which would reveal the overall total to clients).
+      $('count').textContent = rows.length + ' of ' + scoped().length + ' requests shown';
     }
     document.querySelector('.filters').addEventListener('input', function (e) {
       if (e.target.id === 'sort') { var p = e.target.value.split(':'); key = p[0]; dir = p[1] === 'asc' ? 1 : -1 }
@@ -294,7 +298,7 @@
       ['cat', 'type', 'st', 'pri', 'room', 'co'].forEach(function (i) { $(i).value = '' });
       $('arc').checked = false; $('sort').value = 's:asc'; key = 's'; dir = 1; render();
     });
- 
+
     /* ---- Create / Read / Update ---- */
     // Create is a placeholder for now (no handler yet).
     // Read shows/hides the filters and the update panel; active filters stay applied while hidden.
@@ -359,11 +363,16 @@
     $('showTbl').addEventListener('change', function () { $('tblwrap').hidden = !this.checked });
     $('tblwrap').hidden = !$('showTbl').checked;
     $('sort').value = 's:asc'; render(); syncBtns();
- 
+
     /* ---- ADDED: role selection (mockup only; this is not real security) ----
        Nothing but the role dropdown shows until a role is picked. Any element with a data-role
        attribute is shown only to the roles listed in it (space-separated). */
     var currentRole = '', currentUserId = null;
+    // ADDED: the requests the current user is allowed to see. A client only gets rows whose client id (c)
+    // matches their own c_id; coordinators (and the signed-out state, where the page is hidden anyway) get everything.
+    function scoped() {
+      return currentRole === 'client' ? D.filter(function (x) { return x.c === currentUserId }) : D;
+    }
     // UPDATED: the dropdown value is now "role:id" (for example "client:4" or "coordinator:1"), so it is split
     // into the role (used by data-role and the update guard) and the id (c_id or co_id, kept in currentUserId).
     function applyRole(selected) {
@@ -371,6 +380,8 @@
       var role = parts[0] || '';
       currentRole = role;
       currentUserId = parts[1] ? +parts[1] : null;
+      // ADDED: start each user with a clean view: clear the filters, rebuild the filter lists from only their rows, and redraw
+      $('reset').click(); buildFilters(); render();
       $('app').hidden = !role;
       document.querySelectorAll('[data-role]').forEach(function (el) {
         el.hidden = !role || el.getAttribute('data-role').split(' ').indexOf(role) < 0;
@@ -389,6 +400,5 @@
     applyRole($('role').value);
   </script>
 </body>
- 
+
 </html>
- 
