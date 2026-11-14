@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Request Error</title>
+</head>
+<body>
+  <h1>We couldn't submit your request</h1>
+  <ul id="error-list"></ul>
+  <p><a id="back-link" href="/eventForm.html">Go back and fix the form</a></p>
+
+  <script>
+    const errors = new URLSearchParams(location.search).getAll('error');
+    const list = document.getElementById('error-list');
+
+    if (errors.length === 0) {
+      errors.push('Something went wrong with your submission.');
+    }
+
+    errors.forEach((msg) => {
+      const li = document.createElement('li');
+      li.textContent = msg; // textContent avoids HTML injection
+      list.appendChild(li);
+    });
+
+    // Prefer the browser's back button so the form keeps what they typed;
+    // fall back to the form's URL if there's no history.
+    document.getElementById('back-link').addEventListener('click', (e) => {
+      if (history.length > 1) {
+        e.preventDefault();
+        history.back();
+      }
+    });
+  </script>
+</body>
+</html>

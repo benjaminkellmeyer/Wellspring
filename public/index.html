@@ -125,12 +125,28 @@
 </head>
 
 <body>
+  <!-- ADDED: role selector. Until a role is chosen, this dropdown is the only thing shown on the page. -->
+  <p>
+    <label for="role">I am a:
+      <select id="role">
+        <option value="">-- Select a role --</option>
+        <option value="client">Client</option>
+        <option value="coordinator">Coordinator</option>
+      </select>
+    </label>
+  </p>
+  <p id="roleBanner"></p>
+  <p id="roleMsg" role="status"></p>
+
+  <!-- ADDED: wrapper (closed just before the <script> tag). Hidden until a role is selected; nothing inside it was changed. -->
+  <main id="app" hidden>
   <h1>Event Requests</h1>
   <p class="sub">Admin view · sample data · click a column to sort, click a row for details</p>
   <div class="actions">
     <button id="bCreate" type="button" onclick="window.location.href='eventForm.html';">Create</button>
     <button id="bRead" type="button">Read</button>
-    <button id="bUpdate" type="button">Update</button>
+    <!-- ALTERED: added data-role="coordinator" so this button is only shown to coordinators (clients can't update records). -->
+    <button id="bUpdate" type="button" data-role="coordinator">Update</button>
   </div>
   <div class="edit" id="edit" hidden>
     <label class="wide">Request to update<select id="eid"></select></label>
@@ -178,6 +194,8 @@
       <tbody id="tbody"></tbody>
     </table>
   </div>
+  </main>
+  <!-- END of ADDED wrapper -->
 
   <script>
     var PR = ['urgent', 'high', 'medium', 'low'],
@@ -294,6 +312,13 @@
       $('bUpdate').classList.toggle('on', u); $('bUpdate').setAttribute('aria-pressed', u);
     }
     function showEdit(show) {
+      /* ALTERED: added this guard so a client can never open the update panel, even if the Update button
+         were somehow clicked. Everything below the guard is the original code, unchanged.
+         (currentRole is defined in the ADDED role section at the bottom of this script.) */
+      if (show && currentRole !== 'coordinator') {
+        $('roleMsg').textContent = 'Clients are not allowed to update records.';
+        return;
+      }
       $('edit').hidden = !show;
       if (show) { if (selId == null) selId = D[0].id; fillPick(); loadForm(selId) }
       syncBtns();
@@ -324,6 +349,27 @@
     $('showTbl').addEventListener('change', function () { $('tblwrap').hidden = !this.checked });
     $('tblwrap').hidden = !$('showTbl').checked;
     $('sort').value = 's:asc'; render(); syncBtns();
+
+    /* ---- ADDED: role selection (mockup only; this is not real security) ----
+       Nothing but the role dropdown shows until a role is picked. Any element with a data-role
+       attribute is shown only to the roles listed in it (space-separated). */
+    var currentRole = '';
+    function applyRole(role) {
+      currentRole = role;
+      $('app').hidden = !role;
+      document.querySelectorAll('[data-role]').forEach(function (el) {
+        el.hidden = !role || el.getAttribute('data-role').split(' ').indexOf(role) < 0;
+      });
+      if (role !== 'coordinator' && !$('edit').hidden) showEdit(false); // close the update panel if it was open
+      $('roleBanner').textContent = role ? 'Viewing as: ' + role : '';
+      $('roleMsg').textContent = '';
+      try { sessionStorage.setItem('role', role) } catch (e) { } // remember the choice across page refreshes
+    }
+    $('role').addEventListener('change', function () { applyRole(this.value) });
+    var savedRole = '';
+    try { savedRole = sessionStorage.getItem('role') || '' } catch (e) { }
+    if (savedRole === 'client' || savedRole === 'coordinator') $('role').value = savedRole;
+    applyRole($('role').value);
   </script>
 </body>
 

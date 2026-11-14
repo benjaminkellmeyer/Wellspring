@@ -129,14 +129,9 @@ if (clientId === null) errors.push('Choose a client.');
 //UPDATE THIS WITH AIDEN CODE -----------------------------------------------------------------------------------------------
  
 function errorPage(res, status, messages) {
-  const items = messages.map((m) => `<li>${m.replace(/</g, '&lt;')}</li>`).join('');
-  res
-    .status(status)
-    .send(
-      `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Request Error</title></head>` +
-        `<body><h1>We couldn't submit your request</h1><ul>${items}</ul>` +
-        `<p><a href="javascript:history.back()">Go back and fix the form</a></p></body></html>`
-    );
+  const params = new URLSearchParams();
+  messages.forEach((m) => params.append('error', m));
+  res.redirect(303, `/eventFailure.html?${params.toString()}`);
 }
 
 //UPDATE THIS WITH AIDEN CODE -----------------------------------------------------------------------------------------------
