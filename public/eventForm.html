@@ -162,6 +162,16 @@
       }
     }
 
+// Pre-fill start and end with today's date at 0:00, and don't allow anything earlier than that
+var now = new Date();
+var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+var today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+startInput.min = today + 'T00:00';
+endInput.min = today + 'T00:00';
+startInput.value = today + 'T00:00';
+endInput.value = today + 'T00:00';
+checkEnd(); // re-run your existing end-time check
+
     startInput.addEventListener('input', checkEnd);
     endInput.addEventListener('input', checkEnd);
   </script>
