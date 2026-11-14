@@ -1,6 +1,7 @@
+
 <!DOCTYPE html>
 <html lang="en">
-
+ 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,21 +13,21 @@
       gap: 10px;
       flex-wrap: wrap
     }
-
+ 
     .edit {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 10px
     }
-
+ 
     .edit[hidden] {
       display: none
     }
-
+ 
     .edit .wide {
       grid-column: 1/-1
     }
-
+ 
     .edit .btns {
       grid-column: 1/-1;
       display: flex;
@@ -34,110 +35,119 @@
       align-items: center;
       flex-wrap: wrap
     }
-
+ 
     .filters {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 10px
     }
-
+ 
     .filters[hidden] {
       display: none
     }
-
+ 
     .actions button {
       padding: 6px 16px;
       border: 1px solid rgba(128, 128, 128, .7);
       border-radius: 6px;
       box-shadow: 0 2px 3px rgba(0, 0, 0, .3)
     }
-
+ 
     .actions button.on {
       font-weight: bold;
       background: rgba(128, 128, 128, .3);
       box-shadow: inset 0 3px 6px rgba(0, 0, 0, .45);
       transform: translateY(1px)
     }
-
+ 
     label {
       display: flex;
       flex-direction: column
     }
-
+ 
     .chk {
       flex-direction: row;
       align-items: center;
       gap: 6px;
       padding-top: 18px
     }
-
+ 
     .wrap {
       overflow-x: auto
     }
-
+ 
     .bar {
       display: flex;
       gap: 14px;
       align-items: center;
       flex-wrap: wrap
     }
-
+ 
     .bar .chk {
       padding-top: 0
     }
-
+ 
     table {
       border-collapse: collapse;
       width: 100%;
       min-width: 1000px
     }
-
+ 
     th,
     td {
       padding: 9px 10px;
       text-align: left;
       white-space: nowrap
     }
-
+ 
     th,
     tr.row {
       cursor: pointer
     }
-
+ 
     tr.det td {
       white-space: normal
     }
-
+ 
     .dg {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 8px 18px
     }
-
+ 
     .dg small {
       display: block
     }
-
+ 
     .empty {
       text-align: center
     }
   </style>
 </head>
-
+ 
 <body>
   <!-- ADDED: role selector. Until a role is chosen, this dropdown is the only thing shown on the page. -->
   <p>
-    <label for="role">I am a:
+    <label for="role">I am:
+      <!-- Each option's value is "role:id" (id = c_id for clients, co_id for coordinators); the text is what the user sees. -->
       <select id="role">
-        <option value="">-- Select a role --</option>
-        <option value="client">Client</option>
-        <option value="coordinator">Coordinator</option>
+        <option value="">-- Select a user --</option>
+        <option value="client:4">User - Lone Star Events Co</option>
+        <option value="client:5">User - North Texas Food Alliance</option>
+        <option value="client:6">User - City of Arlington Parks</option>
+        <option value="client:7">User - Jamie Rivera</option>
+        <option value="client:8">User - Riverbend Neighborhood HOA</option>
+        <option value="coordinator:1">Staff - Maria Gonzalez</option>
+        <option value="coordinator:2">Staff - James Carter</option>
+        <option value="coordinator:3">Staff - Priya Patel</option>
+        <option value="coordinator:4">Staff - David Nguyen</option>
+        <option value="coordinator:5">Staff - Aisha Williams</option>
       </select>
     </label>
   </p>
   <p id="roleBanner"></p>
   <p id="roleMsg" role="status"></p>
-
+ 
   <!-- ADDED: wrapper (closed just before the <script> tag). Hidden until a role is selected; nothing inside it was changed. -->
   <main id="app" hidden>
   <h1>Event Requests</h1>
@@ -196,7 +206,7 @@
   </div>
   </main>
   <!-- END of ADDED wrapper -->
-
+ 
   <script>
     var PR = ['urgent', 'high', 'medium', 'low'],
       ST = ['submitted', 'in_progress', 'scheduled', 'declined', 'cancelled', 'needs_followup', 'completed'],
@@ -284,7 +294,7 @@
       ['cat', 'type', 'st', 'pri', 'room', 'co'].forEach(function (i) { $(i).value = '' });
       $('arc').checked = false; $('sort').value = 's:asc'; key = 's'; dir = 1; render();
     });
-
+ 
     /* ---- Create / Read / Update ---- */
     // Create is a placeholder for now (no handler yet).
     // Read shows/hides the filters and the update panel; active filters stay applied while hidden.
@@ -349,28 +359,36 @@
     $('showTbl').addEventListener('change', function () { $('tblwrap').hidden = !this.checked });
     $('tblwrap').hidden = !$('showTbl').checked;
     $('sort').value = 's:asc'; render(); syncBtns();
-
+ 
     /* ---- ADDED: role selection (mockup only; this is not real security) ----
        Nothing but the role dropdown shows until a role is picked. Any element with a data-role
        attribute is shown only to the roles listed in it (space-separated). */
-    var currentRole = '';
-    function applyRole(role) {
+    var currentRole = '', currentUserId = null;
+    // UPDATED: the dropdown value is now "role:id" (for example "client:4" or "coordinator:1"), so it is split
+    // into the role (used by data-role and the update guard) and the id (c_id or co_id, kept in currentUserId).
+    function applyRole(selected) {
+      var parts = selected ? selected.split(':') : [];
+      var role = parts[0] || '';
       currentRole = role;
+      currentUserId = parts[1] ? +parts[1] : null;
       $('app').hidden = !role;
       document.querySelectorAll('[data-role]').forEach(function (el) {
         el.hidden = !role || el.getAttribute('data-role').split(' ').indexOf(role) < 0;
       });
       if (role !== 'coordinator' && !$('edit').hidden) showEdit(false); // close the update panel if it was open
-      $('roleBanner').textContent = role ? 'Viewing as: ' + role : '';
+      // The banner shows the dropdown's visible text, for example "Viewing as: User - Jamie Rivera"
+      $('roleBanner').textContent = role ? 'Viewing as: ' + $('role').options[$('role').selectedIndex].text : '';
       $('roleMsg').textContent = '';
-      try { sessionStorage.setItem('role', role) } catch (e) { } // remember the choice across page refreshes
+      try { sessionStorage.setItem('role', selected) } catch (e) { } // remember the choice across page refreshes
     }
     $('role').addEventListener('change', function () { applyRole(this.value) });
     var savedRole = '';
     try { savedRole = sessionStorage.getItem('role') || '' } catch (e) { }
-    if (savedRole === 'client' || savedRole === 'coordinator') $('role').value = savedRole;
+    if (savedRole) $('role').value = savedRole;
+    if ($('role').selectedIndex < 0) $('role').selectedIndex = 0; // a stale saved value matches no option: fall back to the placeholder
     applyRole($('role').value);
   </script>
 </body>
-
+ 
 </html>
+ 
