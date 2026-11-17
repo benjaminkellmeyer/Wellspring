@@ -249,30 +249,23 @@
   <!-- END of ADDED wrapper -->
  
   <script>
-    var PR = ['urgent', 'high', 'medium', 'low'],
-      ST = ['submitted', 'in_progress', 'scheduled', 'declined', 'cancelled', 'needs_followup', 'completed'],
-      CAT = ['public', 'private', 'tenant'];
-    /* ADDED (Version B names, filled in with the real names from your Client, Coordinator and Room tables):
-       lookups from id to display name. Rooms 5-7 do not exist in your table, so those ids are skipped. */
-    var CL = { 4: 'Lone Star Events Co', 5: 'North Texas Food Alliance', 6: 'City of Arlington Parks', 7: 'Jamie Rivera', 8: 'Riverbend Neighborhood HOA' },
-      CO = { 1: 'Maria Gonzalez', 2: 'James Carter', 3: 'Priya Patel', 4: 'David Nguyen', 5: 'Aisha Williams' },
-      RM = { 1: 'Grand Ballroom', 2: 'Conference Hall A', 3: 'Meeting Room 101', 4: 'Auditorium', 8: 'Wellspring Hall', 9: 'Garden Pavilion', 10: 'Lakeside Conference Room' };
-    function nm(m, id) { return id == null ? '—' : (m[id] || String(id)) }
-    // ALTERED (Sq ft decision): the sq: field was removed from every row below.
-    var D = [
-      { id: 101, c: 4, co: 1, r: 2, cat: 'private', type: 'wedding', name: 'Garcia–Lee wedding reception', s: '2026-11-14T16:00', e: '2026-11-14T23:00', att: 120, fur: 'Round tables, chairs, dance floor', tech: 'Microphone, speakers', cater: 'Buffet for 120', notes: 'Wants string lights on the courtyard side.', pri: 'high', st: 'in_progress', cr: '2026-10-01T09:12', ar: null },
-      { id: 102, c: 5, co: 2, r: 1, cat: 'private', type: 'birthday party', name: 'Kid’s 8th birthday', s: '2026-11-21T13:00', e: '2026-11-21T16:00', att: 25, fur: 'Long tables, folding chairs', tech: 'Bluetooth speaker', cater: 'Cake and juice', notes: '', pri: 'low', st: 'submitted', cr: '2026-10-03T14:40', ar: null },
-      { id: 103, c: 6, co: 3, r: 2, cat: 'public', type: 'fundraiser', name: 'Autumn silent auction', s: '2026-12-05T18:00', e: '2026-12-05T22:00', att: 150, fur: 'Display tables, chairs', tech: 'Projector, microphone', cater: 'Appetizers and drinks', notes: 'Needs 12 display tables for auction items.', pri: 'urgent', st: 'needs_followup', cr: '2026-10-05T10:05', ar: null },
-      { id: 104, c: 7, co: 4, r: 3, cat: 'tenant', type: 'workshop', name: 'Tenant pottery workshop', s: '2026-11-10T10:00', e: '2026-11-10T12:30', att: 14, fur: 'Workbenches', tech: 'Speaker', cater: '', notes: 'Floor protection needed.', pri: 'medium', st: 'scheduled', cr: '2026-10-06T08:30', ar: null },
-      { id: 105, c: 8, co: 5, r: null, cat: 'private', type: 'corporate meeting', name: 'Quarterly team offsite', s: '2026-12-02T09:00', e: '2026-12-02T15:00', att: 40, fur: 'Conference tables, chairs', tech: 'Projector, video conferencing', cater: 'Lunch boxes', notes: 'Room not assigned yet.', pri: 'medium', st: 'submitted', cr: '2026-10-08T16:20', ar: null },
-      { id: 106, c: 4, co: 2, r: 3, cat: 'public', type: 'workshop', name: 'Community resume clinic', s: '2026-11-18T17:30', e: '2026-11-18T19:30', att: 20, fur: 'Desks, chairs', tech: 'Wi-Fi, printer', cater: '', notes: '', pri: 'low', st: 'completed', cr: '2026-09-28T11:00', ar: '2026-10-20T09:00' },
-      { id: 107, c: 5, co: 3, r: 2, cat: 'private', type: 'wedding', name: 'Okafor engagement party', s: '2026-12-12T17:00', e: '2026-12-12T22:30', att: 90, fur: 'Cocktail tables, lounge seating', tech: 'DJ setup', cater: 'Cocktails and small plates', notes: 'Client prefers phone contact.', pri: 'high', st: 'scheduled', cr: '2026-10-09T13:15', ar: null },
-      { id: 108, c: 6, co: 4, r: 1, cat: 'tenant', type: 'meeting', name: 'Tenant association meeting', s: '2026-11-12T18:00', e: '2026-11-12T19:30', att: 30, fur: 'Chairs, podium', tech: 'Microphone', cater: '', notes: '', pri: 'medium', st: 'declined', cr: '2026-10-10T09:45', ar: null },
-      { id: 109, c: 7, co: 5, r: 2, cat: 'public', type: 'fundraiser', name: 'Winter gala', s: '2027-01-23T18:00', e: '2027-01-24T00:00', att: 300, fur: 'Round tables, stage, chairs', tech: 'Lighting, sound system, projector', cater: 'Plated dinner for 300', notes: 'Waiting on room capacity confirmation.', pri: 'urgent', st: 'in_progress', cr: '2026-10-12T15:00', ar: null },
-      { id: 110, c: 8, co: 1, r: 1, cat: 'private', type: 'birthday party', name: '60th birthday dinner', s: '2026-11-29T18:00', e: '2026-11-29T22:00', att: 45, fur: 'Banquet tables', tech: 'Slideshow screen', cater: 'Family-style dinner', notes: 'Client cancelled by email.', pri: 'low', st: 'cancelled', cr: '2026-10-13T12:10', ar: '2026-10-25T10:00' },
-      { id: 111, c: 4, co: 3, r: 3, cat: 'tenant', type: 'workshop', name: 'Yoga for tenants', s: '2026-11-17T07:30', e: '2026-11-17T08:30', att: 12, fur: 'Folding chairs', tech: 'Speaker', cater: '', notes: '', pri: 'low', st: 'scheduled', cr: '2026-10-15T08:05', ar: null },
-      { id: 112, c: 5, co: 4, r: 2, cat: 'public', type: 'concert', name: 'Local jazz evening', s: '2026-12-19T19:00', e: '2026-12-19T22:00', att: 180, fur: 'Theater seating, stage', tech: 'Sound system, lighting', cater: 'Cash bar', notes: 'Need load-in at 3 pm.', pri: 'medium', st: 'needs_followup', cr: '2026-10-18T17:25', ar: null }
-    ];
+var PR=['urgent','high','medium','low'],
+ST=['submitted','in_progress','scheduled','declined','cancelled','needs_followup','completed'],
+CAT=['public','private','tenant'];
+/* ===== SUPABASE SETTINGS: fill these in ===== */
+var SB_URL='https://ziqfqmmstecdqfxdqejp.supabase.co';   // Project Settings > API > Project URL
+var SB_KEY='sb_publishable_MMCOfLsZGqWU_aAK8UOKKQ_gGB1KIyG';   // publishable (anon) key. Never use the secret/service_role key here
+var TBL={event:'event',client:'client',coord:'coordinator',room:'room'};  // your table names
+// For each lookup table: its id column, and how to build the name shown on the page
+var LK={
+  client:{id:'C_id', name:function(r){return r.C_name}},     // e.g. r.C_first_name+' '+r.C_last_name
+  coord:{id:'Co_id', name:function(r){return r.Co_name}},
+  room:{id:'R_id', name:function(r){return r.R_name}}
+};
+/* ============================================ */
+var CL={},CO={},RM={},D=[];
+function nm(m,id){return id==null?'—':(m[id]||String(id))}
+
     var $ = function (i) { return document.getElementById(i) };
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
     function fmt(s) { return s ? new Date(s).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
@@ -502,6 +495,43 @@
     if (savedRole) $('role').value = savedRole;
     if ($('role').selectedIndex < 0) $('role').selectedIndex = 0; // a stale saved value matches no option: fall back to the placeholder
     applyRole($('role').value);
+  
+  /* ---- Load data from Supabase (read-only) ---- */
+function sbGet(t){
+  var h={apikey:SB_KEY};if(SB_KEY.indexOf('sb_')!==0)h.Authorization='Bearer '+SB_KEY; // new sb_ keys are not JWTs: apikey header only
+  return fetch(SB_URL+'/rest/v1/'+t+'?select=*',{headers:h})
+    .then(function(r){
+      if(!r.ok)return r.text().then(function(m){throw new Error(t+' ('+r.status+') '+m)});
+      return r.json();
+    });
+}
+function txt(v){return Array.isArray(v)?v.join(', '):(v==null?'':String(v))}
+function iso(v){
+  if(!v)return null;var d=new Date(v);if(isNaN(d))return null;
+  var p=function(n){return(n<10?'0':'')+n};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
+function buildMap(rows,cfg){var m={};rows.forEach(function(r){m[r[cfg.id]]=cfg.name(r)});return m}
+function load(){
+  if(SB_URL.indexOf('YOUR-')>=0||SB_KEY.indexOf('YOUR-')>=0){
+    $('dbmsg').textContent='Add your Supabase URL and anon key at the top of the script.';return;
+  }
+  $('dbmsg').textContent='Loading data…';
+  Promise.all([sbGet(TBL.event),sbGet(TBL.client),sbGet(TBL.coord),sbGet(TBL.room)]).then(function(res){
+    CL=buildMap(res[1],LK.client);CO=buildMap(res[2],LK.coord);RM=buildMap(res[3],LK.room);
+    D=res[0].map(function(r){return{
+      id:r.E_id,c:r.C_id,co:r.Co_id,r:r.R_id==null?null:r.R_id,
+      cat:r.E_category,type:r.E_type,name:r.E_name,
+      s:iso(r.E_start)||'',e:iso(r.E_end)||'',att:r.E_attendance,
+      fur:txt(r.E_furniture),tech:txt(r.E_tech),cater:txt(r.E_catering),notes:txt(r.E_notes),
+      pri:r.E_priority,st:r.E_status,cr:iso(r.E_created_at),ar:iso(r.E_archived_at)
+    }});
+    optsMap($('room'),'All rooms',RM,'No room assigned');optsMap($('co'),'All coordinators',CO);optsMap($('fc'),'All clients',CL);
+    optsMap($('f_c'),'',CL);optsMap($('f_co'),'',CO);optsMap($('f_r'),'No room assigned',RM);
+    buildFilters();selId=null;$('dbmsg').textContent='';render();
+  }).catch(function(err){$('dbmsg').textContent='Could not load data: '+err.message});
+}
+load();
   </script>
 </body>
  

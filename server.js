@@ -125,16 +125,12 @@ if (clientId === null) errors.push('Choose a client.');
   return { errors, clean };
 }
 
-
-//UPDATE THIS WITH AIDEN CODE -----------------------------------------------------------------------------------------------
  
 function errorPage(res, status, messages) {
   const params = new URLSearchParams();
   messages.forEach((m) => params.append('error', m));
   res.redirect(303, `/eventFailure.html?${params.toString()}`);
 }
-
-//UPDATE THIS WITH AIDEN CODE -----------------------------------------------------------------------------------------------
  
 // CREATE an event request (the form posts here)
 app.post('/api/event-requests', async (req, res) => {
