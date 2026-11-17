@@ -1,142 +1,511 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <!-- NOT REQUESTED: viewport meta tag (standard for mobile display) -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- NOT REQUESTED: page title -->
-  <title>Event Request | Wellspring on Main</title>
-</head>
-<body>
-
-  <!-- NOT REQUESTED: page heading and intro text -->
-  <h1>Wellspring on Main</h1>
-  <h2>Arlington's Center for Community Engagement</h2>
-  <p>Fields marked with * are required.</p>
-
-  <!-- NOT REQUESTED: form action/method. Replace "#" with your real submission endpoint. -->
-  <form id="event-form" action="#" method="post">
-
-    <!-- category -->
-    <p>
-      <label for="category">Category *</label><br>
-      <select id="category" name="category" required>
-        <option value="">-- Select a category --</option>
-        <option value="public">Public</option>
-        <option value="private">Private</option>
-        <option value="tenant">Tenant</option>
-      </select>
-    </p>
-
-    <!-- type (value = backend value, text = frontend display) -->
-    <p>
-      <label for="type">Type *</label><br>
-      <select id="type" name="type" required>
-        <option value="">-- Select a type --</option>
-        <option value="wedding">Wedding</option>
-        <option value="birthday_party">Birthday Party</option>
-        <option value="corporate">Corporate</option>
-        <option value="community">Community</option>
-        <option value="non-profit">Non-Profit</option>
-        <option value="other">Other</option>
-      </select>
-    </p>
-
-    <!-- name -->
-    <p>
-      <label for="name">Event Name *</label><br>
-      <input type="text" id="name" name="name" maxlength="200" required>
-      <br><small>Maximum 200 characters.</small> <!-- NOT REQUESTED: helper text -->
-    </p>
-
-    <!-- start -->
-    <p>
-      <label for="start">Event Start *</label><br>
-      <input type="datetime-local" id="start" name="start" required>
-      <!-- Note: whether the time is actually available must be checked server-side against existing bookings. -->
-    </p>
-
-    <!-- end -->
-    <p>
-      <label for="end">Event End *</label><br>
-      <input type="datetime-local" id="end" name="end" required>
-      <br><small>Must be between 30 minutes and 8 hours after the start time.</small> <!-- NOT REQUESTED: helper text -->
-    </p>
-
-    <!-- attendance -->
-    <p>
-      <label for="attendance">Estimated Attendance *</label><br>
-      <input type="number" id="attendance" name="attendance" min="2" max="350" step="1" required>
-      <br><small>Between 2 and 350 people.</small> <!-- NOT REQUESTED: helper text -->
-      <!-- Note: "cannot exceed the capacity of the assigned room" must be enforced server-side, since the room is assigned after submission. -->
-    </p>
-
-    <!-- furniture (value = backend value, text = frontend display) -->
-    <p>
-      <label for="furniture">Furniture (optional)</label><br>
-      <select id="furniture" name="furniture[]" multiple size="5">
-        <option value="tables">Tables</option>
-        <option value="chairs">Chairs</option>
-        <option value="podium">Podium</option>
-        <option value="stage">Stage</option>
-        <option value="linens">Linens</option>
-      </select>
-      <br><small>Select any that apply. Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small> <!-- NOT REQUESTED: helper text -->
-    </p>
-
-    <!-- tech (value = backend value, text = frontend display) -->
-    <p>
-      <label for="tech">Tech (optional)</label><br>
-      <select id="tech" name="tech[]" multiple size="5">
-        <option value="projector">Projector</option>
-        <option value="microphone">Microphone</option>
-        <option value="speakers">Speakers</option>
-        <option value="wifi">WiFi</option>
-        <option value="screen">Screen</option>
-      </select>
-      <br><small>Select any that apply. Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</small> <!-- NOT REQUESTED: helper text -->
-    </p>
-
-    <!-- catering (optional) -->
-    <p>
-      <label for="catering">Catering Notes (optional)</label><br>
-      <textarea id="catering" name="catering" rows="3" cols="50" maxlength="200"></textarea>
-      <br><small>Maximum 200 characters.</small> <!-- NOT REQUESTED: helper text -->
-    </p>
-
-    <!-- notes (optional) -->
-    <p>
-      <label for="notes">Other Notes (optional)</label><br>
-      <textarea id="notes" name="notes" rows="6" cols="50" maxlength="2000"></textarea>
-      <br><small>Furniture, tech, or other needs not listed above. Maximum 2000 characters.</small> <!-- NOT REQUESTED: helper text -->
-    </p>
-
-    <!-- NOT REQUESTED: submit button -->
-    <p>
-      <button type="submit">Submit Request</button>
-    </p>
-
-  </form>
-
-  <!-- NOT REQUESTED: small script enforcing the end-time window (HTML alone can't compare two fields).
-       Safe to delete; the same rule should still be validated server-side. -->
-  <script>
-    var startInput = document.getElementById('start');
-    var endInput = document.getElementById('end');
-
-    function checkEnd() {
-      endInput.setCustomValidity('');
-      if (!startInput.value || !endInput.value) return;
-      var diffMinutes = (new Date(endInput.value) - new Date(startInput.value)) / 60000;
-      if (diffMinutes < 30 || diffMinutes > 480) {
-        endInput.setCustomValidity('End time must be between 30 minutes and 8 hours after the start time.');
-      }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event Database</title>
+  <style>
+    /* Layout only: no colors, fonts, or decoration. */
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 18px
     }
 
-    startInput.addEventListener('input', checkEnd);
-    endInput.addEventListener('input', checkEnd);
-  </script>
-<script src="form-submit.js"></script>
+    .edit {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px
+    }
 
+    .edit[hidden] {
+      display: none
+    }
+
+    .edit .wide {
+      grid-column: 1/-1
+    }
+
+    .edit .btns {
+      grid-column: 1/-1;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .fgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px
+    }
+
+    .fgrid[hidden] {
+      display: none
+    }
+
+    .fbar {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap
+    }
+
+    .fbar+.fgrid:not([hidden]) {
+      margin-top: 12px
+    }
+
+    .filters[hidden] {
+      display: none
+    }
+
+    .actions button,
+    .fbar button {
+      padding: 6px 16px;
+      border: 1px solid rgba(128, 128, 128, .7);
+      border-radius: 6px;
+      box-shadow: 0 2px 3px rgba(0, 0, 0, .3)
+    }
+
+    .actions button.on,
+    .fbar button.on,
+    .fbar button.flash {
+      font-weight: bold;
+      background: rgba(128, 128, 128, .3);
+      box-shadow: inset 0 3px 6px rgba(0, 0, 0, .45);
+      transform: translateY(1px)
+    }
+
+    label {
+      display: flex;
+      flex-direction: column
+    }
+
+    /* labels use display:flex above, which overrides the browser's default "hidden" behavior,
+       so this rule is needed for data-role to be able to hide a label */
+    label[hidden] {
+      display: none
+    }
+
+    .chk {
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      align-self: end;
+      padding-bottom: 3px
+    }
+
+    .wrap {
+      overflow-x: auto
+    }
+
+    .bar {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1000px
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      text-align: left;
+      white-space: nowrap
+    }
+
+    th,
+    tr.row {
+      cursor: pointer
+    }
+
+    tr.det td {
+      white-space: normal
+    }
+
+    .dg {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px 18px
+    }
+
+    .dg small {
+      display: block
+    }
+
+    .empty {
+      text-align: center
+    }
+
+    .abtn {
+      padding: 3px 10px
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Role selector. Until a user is chosen, this dropdown is the only thing shown on the page.
+       CHANGED: the options are now filled from the database (clients and coordinators) by the script. -->
+  <p>
+    <label for="role">I am:
+      <select id="role">
+        <option value="">-- Select a user --</option>
+      </select>
+    </label>
+  </p>
+  <p id="roleBanner"></p>
+  <p id="roleMsg" role="status"></p>
+
+  <main id="app" hidden>
+  <h1>Event Requests</h1>
+  <p class="sub">Click a column to sort, click a row for details</p>
+  <div class="actions">
+    <button id="bCreate" type="button" onclick="window.location.href='eventForm.html';">Create</button>
+    <button id="bRead" type="button">Read</button>
+    <button id="bUpdate" type="button" data-role="coordinator">Update</button>
+  </div>
+  <div class="edit" id="edit" hidden>
+    <label class="wide">Request to update<select id="eid"></select></label>
+    <p class="wide">Only the status can be changed for now. The other fields are shown for reference.</p>
+    <!-- CHANGED: every field except the request picker and Status is disabled until its update is built. -->
+    <label>Name<input id="f_name" maxlength="200" disabled></label>
+    <label>Category<select id="f_cat" disabled></select></label>
+    <label>Type<input id="f_type" disabled></label>
+    <label>Client<select id="f_c" disabled></select></label>
+    <label>Coordinator<select id="f_co" disabled></select></label>
+    <label>Room<select id="f_r" disabled></select></label>
+    <label>Start<input id="f_s" type="datetime-local" disabled></label>
+    <label>End<input id="f_e" type="datetime-local" disabled></label>
+    <label>Attendance (2–350)<input id="f_att" type="number" min="2" max="350" disabled></label>
+    <label>Priority<select id="f_pri" disabled></select></label>
+    <label>Status<select id="f_st"></select></label>
+    <label>Furniture<input id="f_fur" disabled></label>
+    <label>Technology<input id="f_tech" disabled></label>
+    <label>Catering<input id="f_cater" maxlength="200" disabled></label>
+    <label class="wide">Notes<textarea id="f_notes" rows="3" maxlength="2000" disabled></textarea></label>
+    <div class="btns">
+      <button id="bSave" type="button">Save changes</button>
+      <button id="bCancel" type="button">Cancel</button>
+      <span id="msg" role="status"></span>
+    </div>
+  </div>
+  <div class="filters" hidden>
+    <div class="fbar"><button id="showTbl" type="button" aria-pressed="false">Show database</button><button id="showFil" type="button" aria-pressed="false">Show filters</button><button id="reset" type="button">Reset filters</button></div>
+    <div class="fgrid" id="fgrid" hidden>
+      <label>Search<input id="q" placeholder="Name, type, notes, ID"></label>
+      <label data-role="coordinator">Client<select id="fc"></select></label>
+      <label>Coordinator<select id="co"></select></label>
+      <label>Type<select id="type"></select></label>
+      <label>Category<select id="cat"></select></label>
+      <label>Room<select id="room"></select></label>
+      <label>Min attendance<input id="amin" type="number" min="2" max="350"></label>
+      <label>Starts on/after<input id="d1" type="date"></label>
+      <label>Starts on/before<input id="d2" type="date"></label>
+      <label>Priority<select id="pri"></select></label>
+      <label>Status<select id="st"></select></label>
+      <label>Sort by<select id="sort"></select></label>
+      <label class="chk"><input id="arc" type="checkbox"> Show archived</label>
+    </div>
+  </div>
+  <div class="bar"><span id="count" hidden></span></div>
+  <div class="wrap" id="tblwrap" hidden>
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  </main>
+
+  <script>
+    var PR = ['urgent', 'high', 'medium', 'low'],
+      ST = ['submitted', 'in_progress', 'scheduled', 'declined', 'cancelled', 'needs_followup', 'completed'],
+      CAT = ['public', 'private', 'tenant'];
+
+    /* CHANGED: the hardcoded events (D) and name lookups (CL, CO, RM) are gone. They start empty and are
+       filled from the database by init() at the bottom of this script. */
+    var D = [], CL = {}, CO = {}, RM = {};
+    var currentRole = '', currentUserId = null;
+    var TZ = 'America/Chicago';
+
+    function nm(m, id) { return id == null ? '—' : (m[id] || String(id)) }
+
+    /* ADDED: the database stores real instants (timestamptz). The venue is in Chicago, so every timestamp is
+       converted to Chicago wall-clock time ("2026-11-14T16:00") when it is loaded. After that the rest of the page
+       treats times as plain wall-clock strings, whatever time zone the browser is in. */
+    var tzFmt = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    function toChicago(iso) {
+      if (!iso) return null;
+      var d = new Date(iso); if (isNaN(d)) return null;
+      var p = {}; tzFmt.formatToParts(d).forEach(function (x) { p[x.type] = x.value });
+      return p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute;
+    }
+
+    /* ADDED: small helper for talking to the server. Throws an Error with the server's message on failure. */
+    function api(url, options) {
+      return fetch(url, options).then(function (r) {
+        return r.json().catch(function () { return null }).then(function (body) {
+          if (!r.ok) throw new Error((body && body.error) || 'Request failed (' + r.status + ')');
+          return body;
+        });
+      });
+    }
+
+    /* ADDED: converts one database row into the shape the rest of this page uses.
+       Furniture and technology are arrays in the database, so they are joined into text here. */
+    function toRow(e) {
+      return {
+        id: e.e_id, c: e.c_id, co: e.co_id, r: e.r_id,
+        cat: e.e_category, type: e.e_type, name: e.e_name || '',
+        s: toChicago(e.e_start), e: toChicago(e.e_end), att: e.e_attendance,
+        fur: (e.e_furniture || []).join(', '), tech: (e.e_tech || []).join(', '),
+        cater: e.e_catering || '', notes: e.e_notes || '',
+        pri: e.e_priority, st: e.e_status,
+        cr: toChicago(e.e_created_at), ar: toChicago(e.e_archived_at)
+      };
+    }
+
+    var $ = function (i) { return document.getElementById(i) };
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+    function fmt(s) { return s ? new Date(s).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
+    function lab(s) { return String(s).replace(/_/g, ' ') }
+    /* uses scoped() instead of D so the Type filter list only contains values from
+       requests the current user is allowed to see. */
+    function uniq(k) { return scoped().map(function (x) { return x[k] }).filter(function (v, i, a) { return v != null && a.indexOf(v) === i }).sort(function (a, b) { return a > b ? 1 : -1 }) }
+    function opts(el, all, arr) { el.innerHTML = (all ? '<option value="">' + all + '</option>' : '') + arr.map(function (v) { return '<option value="' + esc(v) + '">' + esc(lab(v)) + '</option>' }).join('') }
+    // builds a dropdown from an id -> name map. "all" adds a blank-value first option, "none" adds a "none" option last.
+    function optsMap(el, all, map, none) {
+      var h = all ? '<option value="">' + all + '</option>' : '';
+      h += Object.keys(map).map(function (k) { return '<option value="' + k + '">' + esc(map[k]) + '</option>' }).join('');
+      if (none) h += '<option value="none">' + none + '</option>';
+      el.innerHTML = h;
+    }
+    function buildFilters() {
+      var keep = { type: $('type').value, room: $('room').value, co: $('co').value };
+      opts($('type'), 'All types', uniq('type'));
+      optsMap($('room'), 'All rooms', visibleMap(RM, 'r'), 'No room assigned');
+      optsMap($('co'), 'All coordinators', visibleMap(CO, 'co'));
+      ['type', 'room', 'co'].forEach(function (k) { $(k).value = keep[k] });
+    }
+    // Fixed lists (these never come from the database)
+    opts($('cat'), 'All categories', CAT); opts($('st'), 'All statuses', ST); opts($('pri'), 'All priorities', PR);
+    opts($('f_cat'), '', CAT); opts($('f_pri'), '', PR); opts($('f_st'), '', ST);
+
+    var COLS = [['id', 'ID'], ['name', 'Event'], ['c', 'Client'], ['type', 'Type'], ['cat', 'Category'], ['r', 'Room'], ['s', 'Start'], ['pri', 'Priority'], ['co', 'Staff'], ['st', 'Status'], ['act', 'Archive'], ['ar', 'Archived']];
+    var SORTS = [['s:asc', 'Start (soonest)'], ['s:desc', 'Start (latest)'], ['cr:desc', 'Created (newest)'], ['cr:asc', 'Created (oldest)'], ['pri:asc', 'Priority (highest first)'], ['st:asc', 'Status'], ['att:desc', 'Attendance (largest)'], ['name:asc', 'Name A–Z']];
+    $('sort').innerHTML = SORTS.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>' }).join('');
+    // "recent" remembers rows archived since the filters last changed, so they don't vanish the moment you click Archive.
+    var key = 's', dir = 1, selId = null, openRows = {}, recent = {};
+    /* Archive / Un-archive stay in memory only (they are not saved to the database yet), so they reset on reload. */
+    function doArchive(x) { if (x.ar) return; x.ar = nowLocal() }
+    function doUnarchive(x) { if (!x.ar) return; x.ar = null }
+    function nowLocal() { return toChicago(new Date().toISOString()) } // CHANGED: Chicago time, to match the loaded data
+    function rank(k, v) { if (k === 'c') return CL[v]; if (k === 'co') return CO[v]; if (k === 'r') return v == null ? null : RM[v]; if (k === 'pri') return PR.indexOf(v); if (k === 'st') return ST.indexOf(v); return v }
+    function filtered() {
+      var q = $('q').value.toLowerCase(), f = { cat: $('cat').value, type: $('type').value, st: $('st').value, pri: $('pri').value, room: $('room').value, co: $('co').value, c: $('fc').value };
+      var amin = +$('amin').value || 0, d1 = $('d1').value, d2 = $('d2').value, arc = $('arc').checked;
+      return scoped().filter(function (x) {
+        if (!arc && x.ar && !recent[x.id]) return false;
+        if (f.cat && x.cat !== f.cat) return false; if (f.type && x.type !== f.type) return false;
+        if (f.st && x.st !== f.st) return false; if (f.pri && x.pri !== f.pri) return false;
+        if (f.co && String(x.co) !== f.co) return false;
+        if (f.c && String(x.c) !== f.c) return false;
+        if (f.room === 'none') { if (x.r != null) return false } else if (f.room && String(x.r) !== f.room) return false;
+        if (x.att < amin) return false;
+        if (d1 && x.s.slice(0, 10) < d1) return false; if (d2 && x.s.slice(0, 10) > d2) return false;
+        if (q && (x.name + ' ' + x.type + ' ' + x.notes + ' ' + x.fur + ' ' + x.tech + ' ' + x.id + ' ' + nm(CL, x.c) + ' ' + nm(CO, x.co) + ' ' + nm(RM, x.r)).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+    }
+    function render() {
+      var rows = filtered().sort(function (a, b) {
+        var x = rank(key, a[key]), y = rank(key, b[key]);
+        if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+        return (x > y ? 1 : x < y ? -1 : 0) * dir;
+      });
+      $('thead').innerHTML = '<tr>' + COLS.map(function (c) { return '<th data-k="' + c[0] + '" class="' + (c[0] === key ? 'on' : '') + '">' + c[1] + (c[0] === key ? ' <span class="ar">' + (dir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>' }).join('') + '</tr>';
+      $('tbody').innerHTML = rows.length ? rows.map(function (x) {
+        // only coordinators get the Archive / Un-archive button; clients see a dash
+        var archiveCell = currentRole === 'coordinator' ? '<button type="button" class="abtn" data-id="' + x.id + '">' + (x.ar ? 'Un-archive' : 'Archive') + '</button>' : '—';
+        // CHANGED: a missing event name shows as a dash, a missing room shows as "No room assigned", types show without underscores
+        var roomName = x.r == null ? 'No room assigned' : nm(RM, x.r);
+        return '<tr class="row' + (x.ar ? ' arch' : '') + (x.id === selId ? ' sel' : '') + '" data-id="' + x.id + '"><td>' + x.id + '</td><td>' + esc(x.name || '—') + '</td><td>' + esc(nm(CL, x.c)) + '</td><td>' + esc(lab(x.type)) + '</td><td>' + esc(x.cat) + '</td><td>' + esc(roomName) + '</td><td>' + fmt(x.s) + '</td><td>' + esc(lab(x.pri)) + '</td><td>' + esc(nm(CO, x.co)) + '</td><td>' + esc(lab(x.st)) + '</td><td>' + archiveCell + '</td><td>' + fmt(x.ar) + '</td></tr>' +
+          '<tr class="det" id="d' + x.id + '"' + (openRows[x.id] ? '' : ' hidden') + '><td colspan="12"><div class="dg"><div><small>End</small>' + fmt(x.e) + '</div><div><small>Guests</small>' + x.att + '</div><div><small>Created</small>' + fmt(x.cr) + '</div><div><small>Furniture</small>' + esc(x.fur || '—') + '</div><div><small>Technology</small>' + esc(x.tech || '—') + '</div><div><small>Catering</small>' + esc(x.cater || '—') + '</div><div><small>Notes</small>' + esc(x.notes || '—') + '</div></div></td></tr>';
+      }).join('') : '<tr><td colspan="12" class="empty">No event requests match these filters.</td></tr>';
+      $('count').textContent = rows.length + ' of ' + scoped().length + ' requests shown';
+    }
+    document.querySelector('.filters').addEventListener('input', function (e) {
+      recent = {};
+      if (e.target.id === 'sort') { var p = e.target.value.split(':'); key = p[0]; dir = p[1] === 'asc' ? 1 : -1 }
+      render();
+    });
+    $('thead').addEventListener('click', function (e) {
+      var th = e.target.closest('th'); if (!th) return;
+      var k = th.getAttribute('data-k'); if (k === 'act') return;
+      if (k === key) dir = -dir; else { key = k; dir = 1 }
+      $('sort').value = ''; render();
+    });
+    $('tbody').addEventListener('click', function (e) {
+      var ab = e.target.closest('button.abtn');
+      if (ab) {
+        if (currentRole !== 'coordinator') { $('roleMsg').textContent = 'Clients are not allowed to update records.'; return }
+        var r = get(+ab.getAttribute('data-id'));
+        if (r) { if (r.ar) doUnarchive(r); else { doArchive(r); recent[r.id] = true } render() }
+        return
+      }
+      var tr = e.target.closest('tr.row'); if (!tr) return;
+      var id = +tr.getAttribute('data-id');
+      openRows[id] = !openRows[id]; selId = id;
+      if (!$('edit').hidden) loadForm(id);
+      render();
+    });
+    $('reset').addEventListener('click', function () {
+      var rb = this; rb.classList.add('flash'); setTimeout(function () { rb.classList.remove('flash') }, 250);
+      ['q', 'amin', 'd1', 'd2'].forEach(function (i) { $(i).value = '' });
+      ['cat', 'type', 'st', 'pri', 'room', 'co', 'fc'].forEach(function (i) { $(i).value = '' });
+      $('arc').checked = false; $('sort').value = 's:asc'; key = 's'; dir = 1; recent = {}; render();
+    });
+
+    /* ---- Create / Read / Update ---- */
+    $('bRead').addEventListener('click', function () {
+      var f = document.querySelector('.filters');
+      if (f.hidden) f.hidden = false;
+      else if (!$('edit').hidden) $('edit').hidden = true;
+      else { f.hidden = true; fgShown = false; tblShown = false }
+      syncBtns();
+    });
+    function get(id) { for (var i = 0; i < D.length; i++)if (D[i].id === id) return D[i]; return null }
+    var MAP = { name: 'name', cat: 'cat', type: 'type', c: 'c', co: 'co', r: 'r', s: 's', e: 'e', att: 'att', pri: 'pri', st: 'st', fur: 'fur', tech: 'tech', cater: 'cater', notes: 'notes' };
+    function fillPick() {
+      $('eid').innerHTML = D.map(function (x) { return '<option value="' + x.id + '">#' + x.id + ' – ' + esc(x.name || '(no name)') + '</option>' }).join('');
+      $('eid').value = selId;
+    }
+    function loadForm(id) {
+      var x = get(id); if (!x) return;
+      selId = id; $('eid').value = id; $('msg').textContent = '';
+      Object.keys(MAP).forEach(function (k) { $('f_' + k).value = x[k] == null ? '' : x[k] });
+    }
+    function syncBtns() {
+      var f = !document.querySelector('.filters').hidden, u = !$('edit').hidden;
+      $('bRead').classList.toggle('on', f); $('bRead').setAttribute('aria-pressed', f);
+      $('bUpdate').classList.toggle('on', u); $('bUpdate').setAttribute('aria-pressed', u);
+      $('fgrid').hidden = !fgShown; $('showFil').classList.toggle('on', fgShown); $('showFil').setAttribute('aria-pressed', fgShown);
+      $('tblwrap').hidden = !tblShown; $('count').hidden = !tblShown;
+      $('showTbl').classList.toggle('on', tblShown); $('showTbl').setAttribute('aria-pressed', tblShown);
+    }
+    function showEdit(show) {
+      // a client can never open the update panel (mockup only; the real check will be on the server)
+      if (show && currentRole !== 'coordinator') {
+        $('roleMsg').textContent = 'Clients are not allowed to update records.';
+        return;
+      }
+      if (show && !D.length) { $('roleMsg').textContent = 'There are no requests to update.'; return }
+      $('edit').hidden = !show;
+      if (show) { if (selId == null) selId = D[0].id; fillPick(); loadForm(selId) }
+      syncBtns();
+    }
+    $('bUpdate').addEventListener('click', function () { showEdit($('edit').hidden) });
+    $('bCancel').addEventListener('click', function () { showEdit(false) });
+    $('eid').addEventListener('change', function () { selId = +$('eid').value; loadForm(selId); render() });
+
+    /* CHANGED: Save now sends the new status to the server (PATCH /api/events/:id) and only shows success after the
+       server confirms. If the database rejects the change (room unavailable, over capacity, room overlap), the
+       message explains why and the status dropdown goes back to the stored value. */
+    $('bSave').addEventListener('click', function () {
+      var btn = this, x = get(+$('eid').value); if (!x) return;
+      var newStatus = $('f_st').value;
+      if (newStatus === x.st) { $('msg').textContent = 'Status is already ' + lab(x.st) + '. Nothing to save.'; return }
+      btn.disabled = true; $('msg').textContent = 'Saving…';
+      api('/api/events/' + x.id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      }).then(function (res) {
+        x.st = res.event.e_status; // use what the database actually stored
+        selId = x.id; render();
+        $('msg').textContent = 'Saved changes to #' + x.id + '. Status is now ' + lab(x.st) + '.';
+      }).catch(function (err) {
+        $('f_st').value = x.st;
+        $('msg').textContent = 'Not saved: ' + err.message;
+      }).then(function () { btn.disabled = false });
+    });
+
+    var tblShown = false, fgShown = false;
+    $('showFil').addEventListener('click', function () { fgShown = !fgShown; syncBtns() });
+    $('showTbl').addEventListener('click', function () { tblShown = !tblShown; syncBtns() });
+
+    /* ---- Role selection (mockup only; this is not real security) ----
+       Nothing but the role dropdown shows until a user is picked. Any element with a data-role
+       attribute is shown only to the roles listed in it (space-separated). */
+    // the requests the current user is allowed to see. A client only gets rows whose client id (c)
+    // matches their own c_id; coordinators get everything.
+    function scoped() {
+      return currentRole === 'client' ? D.filter(function (x) { return x.c === currentUserId }) : D;
+    }
+    // for client users, trims an id -> name map (rooms, coordinators) down to the ids that appear on their own requests.
+    function visibleMap(map, k) {
+      if (currentRole !== 'client') return map;
+      var out = {};
+      scoped().forEach(function (x) { if (x[k] != null && map[x[k]] != null) out[x[k]] = map[x[k]] });
+      return out;
+    }
+    // The dropdown value is "role:id" (for example "client:4" or "coordinator:1").
+    function applyRole(selected) {
+      var parts = selected ? selected.split(':') : [];
+      var role = parts[0] || '';
+      currentRole = role;
+      currentUserId = parts[1] ? +parts[1] : null;
+      $('reset').click(); buildFilters(); render();
+      $('app').hidden = !role;
+      document.querySelectorAll('[data-role]').forEach(function (el) {
+        el.hidden = !role || el.getAttribute('data-role').split(' ').indexOf(role) < 0;
+      });
+      if (role !== 'coordinator' && !$('edit').hidden) showEdit(false);
+      $('roleBanner').textContent = role ? 'Viewing as: ' + $('role').options[$('role').selectedIndex].text : '';
+      $('roleMsg').textContent = '';
+      try { sessionStorage.setItem('role', selected) } catch (e) { }
+    }
+    $('role').addEventListener('change', function () { applyRole(this.value) });
+
+    /* ADDED: loads everything from the server, fills the dropdowns and name maps, then restores the saved role.
+       Run last so every function and variable above already exists. */
+    function init() {
+      $('roleMsg').textContent = 'Loading…';
+      Promise.all([api('/api/lookups'), api('/api/events')]).then(function (res) {
+        var lk = res[0], ev = res[1];
+        lk.clients.forEach(function (c) { CL[c.c_id] = c.c_name });
+        lk.coordinators.forEach(function (c) { CO[c.co_id] = c.co_name });
+        lk.rooms.forEach(function (r) { RM[r.r_id] = r.r_name });
+        D = ev.events.map(toRow);
+
+        // role dropdown: one entry per client and per coordinator
+        var h = '<option value="">-- Select a user --</option>';
+        lk.clients.forEach(function (c) { h += '<option value="client:' + c.c_id + '">User - ' + esc(c.c_name) + '</option>' });
+        lk.coordinators.forEach(function (c) { h += '<option value="coordinator:' + c.co_id + '">Staff - ' + esc(c.co_name) + '</option>' });
+        $('role').innerHTML = h;
+
+        // filter and update-form dropdowns that need names
+        optsMap($('fc'), 'All clients', CL);
+        optsMap($('f_c'), '', CL); optsMap($('f_co'), '', CO); optsMap($('f_r'), 'No room assigned', RM);
+        buildFilters();
+        $('sort').value = 's:asc'; render(); syncBtns();
+
+        var savedRole = '';
+        try { savedRole = sessionStorage.getItem('role') || '' } catch (e) { }
+        if (savedRole) $('role').value = savedRole;
+        if ($('role').selectedIndex < 0) $('role').selectedIndex = 0; // a stale saved value matches no option
+        applyRole($('role').value);
+      }).catch(function (err) {
+        $('roleMsg').textContent = 'Could not load data: ' + err.message;
+      });
+    }
+    init();
+  </script>
 </body>
+
 </html>
