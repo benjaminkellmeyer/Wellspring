@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supabase Auth + Roles Test</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: .25rem; }
+  section[hidden] { display: none; }
+  label { display: block; margin: .5rem 0 .15rem; font-size: .9rem; }
+  input, select, textarea { width: 100%; padding: .45rem; box-sizing: border-box; font: inherit; }
+  button { margin-top: .75rem; margin-right: .5rem; padding: .5rem 1rem; font: inherit; cursor: pointer; }
+  .badge { display: inline-block; padding: .1rem .5rem; border-radius: 4px; background: #eef; margin-right: .25rem; font-size: .85rem; }
+  .badge.staff { background: #fde2c4; }
+  pre { background: #111; color: #9f9; padding: .75rem; font-size: .8rem; overflow-x: auto; max-height: 260px; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { text-align: left; border-bottom: 1px solid #eee; padding: .3rem; }
+</style>
+</head>
+<body>
+<h1>Supabase Auth + Roles Test</h1>
+<p id="who">Not signed in.</p>
+
+<!-- 1. Sign up / sign in -->
+<section id="auth">
+  <h2>1. Sign up or sign in</h2>
+  <label for="email">Email</label><input id="email" type="email" autocomplete="email">
+  <label for="password">Password</label><input id="password" type="password" autocomplete="current-password">
+  <button id="signup">Sign up</button><button id="signin">Sign in</button>
+</section>
+
+<section id="signedIn" hidden>
+  <button id="signout">Sign out</button>
+
+  <!-- 2. Client record (one per user) -->
+  <h2>2. Your client details</h2>
+  <div id="clientForm">
+    <label for="c_name">Name</label><input id="c_name">
+    <label for="c_type">Type</label>
+    <select id="c_type"><option>individual</option><option>organization</option></select>
+    <label for="c_email">Contact email</label><input id="c_email" type="email">
+    <label for="c_phone">Phone</label><input id="c_phone">
+    <button id="saveClient">Save client details (POST)</button>
+  </div>
+  <p id="clientInfo" hidden></p>
+
+  <!-- 3. Inquiry: the POST test -->
+  <h2>3. Send an inquiry (POST)</h2>
+  <label for="i_name">Event name</label><input id="i_name" value="Test inquiry">
+  <label for="i_type">Type</label>
+  <select id="i_type"><option>booking</option><option>question</option></select>
+  <label for="i_bodytext">Message</label><textarea id="i_bodytext" rows="3">Testing the connection from GitHub Pages.</textarea>
+  <button id="sendInquiry">Send inquiry</button>
+
+  <h2>Inquiries you can see</h2>
+  <p style="font-size:.85rem;color:#666">Users see only their own. Staff see everyone's.</p>
+  <div id="inquiries"></div>
+
+  <!-- Protected: staff only -->
+  <section id="staffArea" hidden>
+    <h2>Staff only</h2>
+    <p>This section only shows for the staff role, and the database itself only returns these rows to staff.</p>
+    <div id="clients"></div>
+  </section>
+</section>
+
+<h2>Log</h2>
+<pre id="log"></pre>
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+  // ── Paste your project's values here (Dashboard → Project Settings → API Keys).
+  // The publishable/anon key is safe to put in a public page; never use the secret/service_role key here.
+  const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+  const SUPABASE_KEY = 'YOUR-PUBLISHABLE-OR-ANON-KEY';
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = (id) => document.getElementById(id);
+  const log = (label, data) => {
+    $('log').textContent = `[${new Date().toLocaleTimeString()}] ${label}\n${JSON.stringify(data, null, 2)}\n\n` + $('log').textContent;
+  };
+
+  let roles = [];
+  let client = null;
+
+  // ── Auth
+  $('signup').onclick = async () => {
+    const { data, error } = await supabase.auth.signUp({
+      email: $('email').value, password: $('password').value,
+      options: { emailRedirectTo: location.href }
+    });
+    log('signUp', error ?? { user: data.user?.email, confirmEmail: !data.session });
+    if (!error && !data.session) alert('Check your email to confirm, then sign in.');
+  };
+  $('signin').onclick = async () => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email: $('email').value, password: $('password').value });
+    log('signIn', error ?? { user: data.user.email });
+  };
+  $('signout').onclick = () => supabase.auth.signOut();
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    // Defer so we don't call Supabase inside the auth callback
+    setTimeout(() => render(session), 0);
+  });
+
+  // ── Load everything for the signed-in user
+  async function render(session) {
+    const signedIn = !!session;
+    $('auth').hidden = signedIn;
+    $('signedIn').hidden = !signedIn;
+    if (!signedIn) { $('who').textContent = 'Not signed in.'; roles = []; client = null; return; }
+
+    // Roles (authorization): read from user_roles joined to roles
+    const { data: roleRows, error: roleErr } = await supabase.from('user_roles').select('roles(name)');
+    if (roleErr) log('load roles', roleErr);
+    roles = (roleRows ?? []).map(r => r.roles.name);
+    $('who').innerHTML = `Signed in as <b>${session.user.email}</b> ` +
+      roles.map(r => `<span class="badge ${r}">${r}</span>`).join('');
+
+    // "Protected route": only show staff UI for staff. (RLS still enforces it server-side.)
+    $('staffArea').hidden = !roles.includes('staff');
+
+    // This user's own client record (staff can see all, so filter by user_id)
+    const { data: c } = await supabase.from('client').select('*').eq('user_id', session.user.id).maybeSingle();
+    client = c;
+    $('clientForm').hidden = !!client;
+    $('clientInfo').hidden = !client;
+    if (client) $('clientInfo').textContent = `Client #${client.c_id}: ${client.c_name} (${client.c_type}), ${client.c_email}`;
+    else $('c_email').value = session.user.email;
+
+    loadInquiries();
+    if (roles.includes('staff')) loadClients();
+  }
+
+  // ── POST: create client record
+  $('saveClient').onclick = async () => {
+    const { data, error } = await supabase.from('client').insert({
+      c_name: $('c_name').value, c_type: $('c_type').value,
+      c_email: $('c_email').value, c_phone: $('c_phone').value
+      // user_id is filled in by the database from the logged-in user
+    }).select().single();
+    log('POST client', error ?? data);
+    if (!error) render((await supabase.auth.getSession()).data.session);
+  };
+
+  // ── POST: send inquiry (this is the connection test)
+  $('sendInquiry').onclick = async () => {
+    if (!client) return alert('Save your client details first.');
+    const { data, error } = await supabase.from('inquiry').insert({
+      c_id: client.c_id,
+      i_name: $('i_name').value, i_type: $('i_type').value, i_bodytext: $('i_bodytext').value
+    }).select().single();
+    log('POST inquiry', error ?? data);
+    if (!error) loadInquiries();
+  };
+
+  async function loadInquiries() {
+    const { data, error } = await supabase.from('inquiry')
+      .select('i_id, i_name, i_type, i_status, i_created_at, client(c_name)')
+      .order('i_created_at', { ascending: false });
+    if (error) return log('GET inquiries', error);
+    $('inquiries').innerHTML = table(data.map(i => ({
+      id: i.i_id, name: i.i_name, type: i.i_type, status: i.i_status,
+      client: i.client?.c_name, sent: new Date(i.i_created_at).toLocaleString()
+    })));
+  }
+
+  async function loadClients() {
+    const { data, error } = await supabase.from('client').select('c_id, c_name, c_type, c_email');
+    if (error) return log('GET clients', error);
+    $('clients').innerHTML = '<p>All clients:</p>' + table(data);
+  }
+
+  function table(rows) {
+    if (!rows.length) return '<p><i>None yet.</i></p>';
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const cols = Object.keys(rows[0]);
+    return `<table><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr>` +
+      rows.map(r => `<tr>${cols.map(c => `<td>${esc(r[c])}</td>`).join('')}</tr>`).join('') + '</table>';
+  }
+</script>
+</body>
+</html>
