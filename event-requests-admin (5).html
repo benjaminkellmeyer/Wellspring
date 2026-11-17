@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Requests – Admin</title>
+<style>
+/* STYLES: mostly layout only. Colors and fonts are left to your site's stylesheet.
+   The only visual styling here is the button look: raised by default, pressed-in when active. */
+/* Create / Read / Update row. margin-bottom is the gap before the next panel. */
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+/* Update panel form grid. .wide spans every column; .btns is the Save/Cancel row.
+   The [hidden] rule is needed because display:grid would otherwise override the hidden attribute. */
+.edit{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.edit[hidden]{display:none}
+.edit .wide{grid-column:1/-1}
+.edit .btns{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+/* Filter grid: columns auto-fit, each at least 150px wide. [hidden] rule below works like .edit[hidden]. */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fgrid[hidden]{display:none}
+/* Button row (Show database / Show filters / Reset filters). The gap keeps buttons from touching;
+   flex-wrap lets them drop to a second line on narrow screens. The next rule adds space above the grid only when it is open. */
+.fbar{display:flex;gap:14px;flex-wrap:wrap}
+.fbar+.fgrid:not([hidden]){margin-top:12px}
+.filters[hidden]{display:none}
+/* Raised button look. The pressed look is below: class "on" = active/selected, class "flash" = the quick Reset filters effect. */
+.actions button,.fbar button{padding:6px 16px;border:1px solid rgba(128,128,128,.7);border-radius:6px;box-shadow:0 2px 3px rgba(0,0,0,.3)}
+.actions button.on,.fbar button.on,.fbar button.flash{font-weight:bold;background:rgba(128,128,128,.3);box-shadow:inset 0 3px 6px rgba(0,0,0,.45);transform:translateY(1px)}
+label{display:flex;flex-direction:column}
+/* Show archived checkbox. align-self:end lines it up with the input boxes in its grid row. */
+.chk{flex-direction:row;align-items:center;gap:6px;align-self:end;padding-bottom:3px}
+.wrap{overflow-x:auto}
+.bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+table{border-collapse:collapse;width:100%;min-width:1000px}
+/* Table cells: nowrap keeps each row one line tall; .wrap (above) scrolls sideways when the table is wider than the screen. */
+th,td{padding:9px 10px;text-align:left;white-space:nowrap}
+th,tr.row{cursor:pointer}
+/* Row-details cell (the dropdown under a clicked row). It wraps text, overriding the nowrap above. */
+tr.det td{white-space:normal}
+.dg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px}
+.dg small{display:block}
+.empty{text-align:center}
+.abtn{padding:3px 10px}
+</style>
+</head>
+<body>
+<!-- PAGE LAYOUT, top to bottom: title, Create/Read/Update buttons, status message, Update panel,
+     Read panel (button row + filters), then the row count and the table.
+     On load only the title and the three buttons are visible; the buttons below reveal everything else. -->
+<h1>Event Requests</h1>
+<p class="sub">Admin view ·</p>
+<!-- ACTION BUTTONS. Create = placeholder (no handler yet). Read = shows/hides the Read panel.
+     Update = opens/closes the Update panel. A button looks pressed in (class "on") while its panel is open. -->
+<div class="actions">
+  <button id="bCreate" type="button">Create</button>
+  <button id="bRead" type="button">Read</button>
+  <button id="bUpdate" type="button">Update</button>
+</div>
+<!-- STATUS LINE: shows "Loading data..." or a Supabase error message; empty when everything is fine. -->
+<div id="dbmsg" role="status"></div>
+<!-- UPDATE PANEL (hidden until Update is pressed). Pick a request, edit fields, press Save.
+     Save changes only the data on screen; nothing is written to Supabase yet.
+     The Client / Coordinator / Room dropdowns are filled from the Supabase lookup tables in load(). -->
+<div class="edit" id="edit" hidden>
+  <label class="wide">Request to update<select id="eid"></select></label>
+  <label>Name<input id="f_name" maxlength="200"></label>
+  <label>Category<select id="f_cat"></select></label>
+  <label>Type<input id="f_type"></label>
+  <label>Client<select id="f_c"></select></label>
+  <label>Coordinator<select id="f_co"></select></label>
+  <label>Room<select id="f_r"></select></label>
+  <label>Start<input id="f_s" type="datetime-local"></label>
+  <label>End<input id="f_e" type="datetime-local"></label>
+  <label>Attendance (2–350)<input id="f_att" type="number" min="2" max="350"></label>
+  <label>Priority<select id="f_pri"></select></label>
+  <label>Status<select id="f_st"></select></label>
+  <label>Furniture<input id="f_fur"></label>
+  <label>Technology<input id="f_tech"></label>
+  <label>Catering<input id="f_cater" maxlength="200"></label>
+  <label class="wide">Notes<textarea id="f_notes" rows="3" maxlength="2000"></textarea></label>
+  <div class="btns">
+    <button id="bSave" type="button">Save changes</button>
+    <button id="bCancel" type="button">Cancel</button>
+    <span id="msg" role="status"></span>
+  </div>
+</div>
+<!-- READ PANEL (hidden until Read is pressed). Holds the button row and the filter grid.
+     Pressing Read again hides it and switches off Show filters and Show database. -->
+<div class="filters" hidden>
+<!-- BUTTON ROW. Show database = shows the table and row count. Show filters = shows the filter grid below.
+     Reset filters = clears every filter. The row sits ABOVE the grid so it does not move when the grid opens. -->
+<div class="fbar"><button id="showTbl" type="button" aria-pressed="false">Show database</button><button id="showFil" type="button" aria-pressed="false">Show filters</button><button id="reset" type="button">Reset filters</button></div>
+<!-- FILTER GRID (hidden until Show filters). Search and Sort by work on the page instantly.
+     Every other control re-queries Supabase (see eventQuery()). Show archived = archived events ONLY. -->
+<div class="fgrid" id="fgrid" hidden>
+  <label>Search<input id="q" placeholder="Name, type, notes, ID"></label>
+  <label>Client<select id="fc"></select></label>
+  <label>Coordinator<select id="co"></select></label>
+  <label>Type<select id="type"></select></label>
+  <label>Category<select id="cat"></select></label>
+  <label>Room<select id="room"></select></label>
+  <label>Min attendance<input id="amin" type="number" min="2" max="350"></label>
+  <label>Starts on/after<input id="d1" type="date"></label>
+  <label>Starts on/before<input id="d2" type="date"></label>
+  <label>Priority<select id="pri"></select></label>
+  <label>Status<select id="st"></select></label>
+  <label>Sort by<select id="sort"></select></label>
+  <label class="chk"><input id="arc" type="checkbox"> Show archived</label>
+</div>
+</div>
+<!-- Row count text, e.g. "3 of 12 requests shown". Hidden/shown together with the table. -->
+<div class="bar"><span id="count" hidden></span></div>
+<!-- DATABASE TABLE (hidden until Show database). Header and body are drawn by render().
+     Click a header to sort; click a row to expand End, Guests, Created, Furniture, Technology, Catering and Notes. -->
+<div class="wrap" id="tblwrap" hidden><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+
+<!-- SCRIPT OVERVIEW
+     1. Lists, Supabase settings and data containers   2. Small helpers   3. Dropdown builders
+     4. Filtering, sorting and drawing the table   5. Click handlers (sort, row, Reset, Read)
+     6. Update panel and Archive buttons   7. Supabase loading (READ-ONLY) and filter queries -->
+<script>
+// Fixed option lists. PR = priorities (urgent is ranked first when sorting), ST = statuses (sorted in this order),
+// CAT = event categories. They match the options in your Event table design.
+var PR=['urgent','high','medium','low'],
+ST=['submitted','in_progress','scheduled','declined','cancelled','needs_followup','completed'],
+CAT=['public','private','tenant'];
+// SETTINGS: the only part you should need to edit to connect the page to your database.
+// SB_URL / SB_KEY = project URL and PUBLISHABLE (anon) key. NEVER put a secret or service_role key in this file.
+// Access is limited by Row Level Security in Supabase, so the anon role needs a read (select) policy on each table below.
+/* ===== SUPABASE SETTINGS: fill these in ===== */
+var SB_URL='https://ziqfqmmstecdqfxdqejp.supabase.co';   // Project Settings > API > Project URL
+var SB_KEY='sb_publishable_MMCOfLsZGqWU_aAK8UOKKQ_gGB1KIyG';   // publishable (anon) key. Never use the secret/service_role key here
+var TBL={event:'event',client:'client',coord:'coordinator',room:'room'};  // your table names
+// For each lookup table: its id column, and how to build the name shown on the page
+var LK={
+  client:{id:'C_id', name:function(r){return r.C_name}},     // e.g. r.C_first_name+' '+r.C_last_name
+  coord:{id:'Co_id', name:function(r){return r.Co_name}},
+  room:{id:'R_id', name:function(r){return r.R_name}}
+};
+/* ============================================ */
+// Data containers, filled by load(). CL / CO / RM map an id to a display name (client, coordinator, room).
+// D = the event rows currently shown. TYPES = every event type found in the database (feeds the Type dropdown).
+// LO = events edited on screen (Update / Archive). They are re-applied after each re-query so edits are not lost until a refresh.
+var CL={},CO={},RM={},D=[],TYPES=[],LO={};  // LO = on-screen edits kept until writes are built
+// Look up a name by id in CL / CO / RM. Shows a dash for null (e.g. no room) and the raw id if the name is missing.
+function nm(m,id){return id==null?'—':(m[id]||String(id))}
+// Shortcut: $("id") = document.getElementById("id").
+var $=function(i){return document.getElementById(i)};
+// Escape text before putting it into HTML so data containing < > & " cannot break the page.
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+// Format a stored date string for display (e.g. Nov 14, 2026, 4:00 PM). Empty values show a dash.
+function fmt(s){return s?new Date(s).toLocaleString([],{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'—'}
+// Turn a stored value into a label: underscores become spaces (needs_followup -> needs followup).
+function lab(s){return String(s).replace(/_/g,' ')}
+// Sorted list of the distinct values of field k across D (not used for the Type dropdown any more; TYPES is).
+function uniq(k){return D.map(function(x){return x[k]}).filter(function(v,i,a){return v!=null&&a.indexOf(v)===i}).sort(function(a,b){return a>b?1:-1})}
+// Fill a <select> from a plain list. "all" = text of the blank first option (e.g. "All types"); pass "" for none.
+function opts(el,all,arr){el.innerHTML=(all?'<option value="">'+all+'</option>':'')+arr.map(function(v){return'<option value="'+esc(v)+'">'+esc(lab(v))+'</option>'}).join('')}
+// Fill a <select> from an {id: name} map. "all" = blank first option; "none" adds a "No room assigned" option (value "none").
+function optsMap(el,all,map,none){
+  var h=all?'<option value="">'+all+'</option>':'';
+  h+=Object.keys(map).map(function(k){return'<option value="'+k+'">'+esc(map[k])+'</option>'}).join('');
+  if(none)h+='<option value="none">'+none+'</option>';
+  el.innerHTML=h;
+}
+// Rebuild the Type filter from TYPES while keeping the current selection.
+// Client / Coordinator / Room dropdowns come from the lookup tables and are built in load().
+function buildFilters(){
+  var keep=$('type').value;
+  opts($('type'),'All types',TYPES);
+  $('type').value=keep;
+}
+// Initial dropdown setup for the fixed lists. Client / Coordinator / Room / Type are filled later, after the database responds.
+opts($('cat'),'All categories',CAT);opts($('st'),'All statuses',ST);opts($('pri'),'All priorities',PR);buildFilters();
+optsMap($('room'),'All rooms',RM,'No room assigned');optsMap($('co'),'All coordinators',CO);optsMap($('fc'),'All clients',CL);
+optsMap($('f_c'),'',CL);optsMap($('f_co'),'',CO);optsMap($('f_r'),'No room assigned',RM);
+opts($('f_cat'),'',CAT);opts($('f_pri'),'',PR);opts($('f_st'),'',ST);
+// Table columns as [field, header text]. "act" is the Archive button column (not sortable).
+// End, Guests and Created are not columns; they appear in the row-details dropdown (see render()).
+var COLS=[['id','ID'],['name','Event'],['c','Client'],['type','Type'],['cat','Category'],['r','Room'],['s','Start'],['pri','Priority'],['co','Staff'],['st','Status'],['act','Archive'],['ar','Archived']];
+// Options for the "Sort by" dropdown, as "field:direction". Direction asc = 1, desc = -1 in render().
+var SORTS=[['s:asc','Start (soonest)'],['s:desc','Start (latest)'],['cr:desc','Created (newest)'],['cr:asc','Created (oldest)'],['pri:asc','Priority (highest first)'],['st:asc','Status'],['att:desc','Attendance (largest)'],['name:asc','Name A–Z']];
+$('sort').innerHTML=SORTS.map(function(s){return'<option value="'+s[0]+'">'+s[1]+'</option>'}).join('');
+// key / dir = current sort field and direction. selId = event selected in the Update panel.
+// openRows = which rows have their details open (kept across re-draws). recent = events just archived on screen,
+// which stay visible until the next filter change so you can see the new Archived timestamp.
+var key='s',dir=1,selId=null,openRows={},recent={};
+// Archive / un-archive on screen only. Archiving stamps the current time in x.ar; un-archiving clears it. Status is NOT changed.
+// To persist, write E_archived_at to Supabase here.
+function doArchive(x){if(x.ar)return;x.ar=nowLocal()}
+function doUnarchive(x){if(!x.ar)return;x.ar=null}
+function nowLocal(){var d=new Date(),p=function(n){return(n<10?'0':'')+n};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())}
+// Sort value for a field. Priority and status sort by their list order; client / staff / room sort by NAME, not id.
+// Empty values return null, which render() always places last.
+function rank(k,v){if(k==='c')return CL[v];if(k==='co')return CO[v];if(k==='r')return v==null?null:RM[v];if(k==='pri')return PR.indexOf(v);if(k==='st')return ST.indexOf(v);return v}
+// Second-pass filter on the page. The database already applied the structured filters (see eventQuery());
+// this re-checks them so on-screen edits behave, and applies Search, which also matches client / staff / room names.
+// Archived rule: Show archived ticked = archived only; unticked = not archived (plus anything in "recent").
+function filtered(){
+  var q=$('q').value.toLowerCase(),f={cat:$('cat').value,type:$('type').value,st:$('st').value,pri:$('pri').value,room:$('room').value,co:$('co').value,c:$('fc').value};
+  var amin=+$('amin').value||0,d1=$('d1').value,d2=$('d2').value,arc=$('arc').checked;
+  return D.filter(function(x){
+    if(arc){if(!x.ar)return false}else if(x.ar&&!recent[x.id])return false; // Show archived = archived only
+    if(f.cat&&x.cat!==f.cat)return false;if(f.type&&x.type!==f.type)return false;
+    if(f.st&&x.st!==f.st)return false;if(f.pri&&x.pri!==f.pri)return false;
+    if(f.co&&String(x.co)!==f.co)return false;
+    if(f.c&&String(x.c)!==f.c)return false;
+    if(f.room==='none'){if(x.r!=null)return false}else if(f.room&&String(x.r)!==f.room)return false;
+    if(x.att<amin)return false;
+    if(d1&&x.s.slice(0,10)<d1)return false;if(d2&&x.s.slice(0,10)>d2)return false;
+    if(q&&(x.name+' '+x.type+' '+x.notes+' '+x.fur+' '+x.tech+' '+x.id+' '+nm(CL,x.c)+' '+nm(CO,x.co)+' '+nm(RM,x.r)).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+}
+// Draw the table. 1) filter + sort D  2) write the header (arrow shows sort)  3) write one row per event
+// plus a hidden details row (End, Guests, Created, Furniture, Technology, Catering, Notes)  4) update the row count text.
+// Called after any change to filters, sort, data or archive state.
+function render(){
+  var rows=filtered().sort(function(a,b){
+    var x=rank(key,a[key]),y=rank(key,b[key]);
+    if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+    return(x>y?1:x<y?-1:0)*dir;
+  });
+  $('thead').innerHTML='<tr>'+COLS.map(function(c){return'<th data-k="'+c[0]+'" class="'+(c[0]===key?'on':'')+'">'+c[1]+(c[0]===key?' <span class="ar">'+(dir>0?'▲':'▼')+'</span>':'')+'</th>'}).join('')+'</tr>';
+  $('tbody').innerHTML=rows.length?rows.map(function(x){
+    return'<tr class="row'+(x.ar?' arch':'')+(x.id===selId?' sel':'')+'" data-id="'+x.id+'"><td>'+x.id+'</td><td>'+esc(x.name)+'</td><td>'+esc(nm(CL,x.c))+'</td><td>'+esc(lab(x.type))+'</td><td>'+esc(lab(x.cat))+'</td><td>'+esc(nm(RM,x.r))+'</td><td>'+fmt(x.s)+'</td><td>'+esc(lab(x.pri))+'</td><td>'+esc(nm(CO,x.co))+'</td><td>'+esc(lab(x.st))+'</td><td><button type="button" class="abtn" data-id="'+x.id+'"'+'>'+(x.ar?'Un-archive':'Archive')+'</button></td><td>'+fmt(x.ar)+'</td></tr>'+
+    '<tr class="det" id="d'+x.id+'"'+(openRows[x.id]?'':' hidden')+'><td colspan="12"><div class="dg"><div><small>End</small>'+fmt(x.e)+'</div><div><small>Guests</small>'+x.att+'</div><div><small>Created</small>'+fmt(x.cr)+'</div><div><small>Furniture</small>'+esc(x.fur||'—')+'</div><div><small>Technology</small>'+esc(x.tech||'—')+'</div><div><small>Catering</small>'+esc(x.cater||'—')+'</div><div><small>Notes</small>'+esc(x.notes||'—')+'</div></div></td></tr>';
+  }).join(''):'<tr><td colspan="12" class="empty">No event requests match these filters.</td></tr>';
+  $('count').textContent=rows.length+' of '+D.length+' requests shown';
+}
+// FILTER INPUT HANDLER. Sort changes and typing in Search just redraw instantly.
+// Any other filter waits 250 ms (so quick changes batch together) and then re-queries Supabase via loadEvents().
+var fTimer=null;
+document.querySelector('.filters').addEventListener('input',function(e){
+  recent={};
+  if(e.target.id==='sort'){var p=e.target.value.split(':');key=p[0];dir=p[1]==='asc'?1:-1;render();return}
+  if(e.target.id==='q'){render();return}
+  clearTimeout(fTimer);fTimer=setTimeout(loadEvents,250);
+});
+// Header click = sort by that column; clicking the same column again reverses the direction.
+$('thead').addEventListener('click',function(e){
+  var th=e.target.closest('th');if(!th)return;
+  var k=th.getAttribute('data-k');if(k==='act')return;if(k===key)dir=-dir;else{key=k;dir=1}
+  $('sort').value='';render();
+});
+// Table click handler. Archive / Un-archive button: toggles the Archived timestamp on screen and keeps the row visible.
+// Any other click on a row toggles its details dropdown and selects it for the Update panel.
+$('tbody').addEventListener('click',function(e){
+  var ab=e.target.closest('button.abtn');
+  if(ab){var r=get(+ab.getAttribute('data-id'));if(r){if(r.ar)doUnarchive(r);else{doArchive(r);recent[r.id]=true}LO[r.id]=r;render()}return}
+  var tr=e.target.closest('tr.row');if(!tr)return;
+  var id=+tr.getAttribute('data-id');
+  openRows[id]=!openRows[id];selId=id;
+  if(!$('edit').hidden)loadForm(id);
+  render();
+});
+// Reset filters: clear every control, restore the default sort, flash the button briefly (250 ms) and re-query.
+$('reset').addEventListener('click',function(){
+  var rb=this;rb.classList.add('flash');setTimeout(function(){rb.classList.remove('flash')},250);
+  ['q','amin','d1','d2'].forEach(function(i){$(i).value=''});
+  ['cat','type','st','pri','room','co','fc'].forEach(function(i){$(i).value=''});
+  $('arc').checked=false;$('sort').value='s:asc';key='s';dir=1;recent={};loadEvents();
+});
+
+/* ---- Create / Read / Update ---- */
+// BUTTON LOGIC. Create: no handler yet (planned: insert a new event into Supabase).
+// Create is a placeholder for now (no handler yet).
+// Read shows/hides the filters and the update panel; active filters stay applied while hidden.
+// Read button has three states: panel hidden -> show it; panel open and Update open -> close only the Update panel;
+// panel open and Update closed -> hide the panel and switch off Show filters and Show database.
+$('bRead').addEventListener('click',function(){
+  var f=document.querySelector('.filters');
+  if(f.hidden)f.hidden=false;            // show filters (update panel left as is)
+  else if(!$('edit').hidden)$('edit').hidden=true; // update open: keep filters, close update
+  else{f.hidden=true;fgShown=false;tblShown=false} // plain read mode: hide panel and clear Show filters / Show database
+  syncBtns();
+});
+// Find an event in D by id (returns null if it is not currently loaded).
+function get(id){for(var i=0;i<D.length;i++)if(D[i].id===id)return D[i];return null}
+// Form field -> event field. Each Update-panel input has id "f_" + the key (f_name, f_cat, f_type, ...).
+var MAP={name:'name',cat:'cat',type:'type',c:'c',co:'co',r:'r',s:'s',e:'e',att:'att',pri:'pri',st:'st',fur:'fur',tech:'tech',cater:'cater',notes:'notes'};
+// Fill the "Request to update" dropdown with the events currently in D.
+function fillPick(){
+  $('eid').innerHTML=D.map(function(x){return'<option value="'+x.id+'">#'+x.id+' – '+esc(x.name)+'</option>'}).join('');
+  $('eid').value=selId;
+}
+// Copy an event's values into the Update panel inputs.
+function loadForm(id){
+  var x=get(id);if(!x)return;
+  selId=id;$('eid').value=id;$('msg').textContent='';
+  Object.keys(MAP).forEach(function(k){$('f_'+k).value=x[k]==null?'':x[k]});
+}
+// Single place that applies all show/hide and pressed-in states: Read, Update, Show filters, Show database,
+// the filter grid, the table wrapper and the row count. Call it after changing any of those states.
+function syncBtns(){
+  var f=!document.querySelector('.filters').hidden,u=!$('edit').hidden;
+  $('bRead').classList.toggle('on',f);$('bRead').setAttribute('aria-pressed',f);
+  $('bUpdate').classList.toggle('on',u);$('bUpdate').setAttribute('aria-pressed',u);
+  $('fgrid').hidden=!fgShown;$('showFil').classList.toggle('on',fgShown);$('showFil').setAttribute('aria-pressed',fgShown);
+  $('tblwrap').hidden=!tblShown;$('count').hidden=!tblShown;
+  $('showTbl').classList.toggle('on',tblShown);$('showTbl').setAttribute('aria-pressed',tblShown);
+}
+// Open or close the Update panel. Opening selects the first event (or the last one clicked) and loads its values.
+function showEdit(show){
+  $('edit').hidden=!show;
+  if(show){if(selId==null)selId=D[0].id;fillPick();loadForm(selId)}
+  syncBtns();
+}
+// Update button toggles the Update panel.
+$('bUpdate').addEventListener('click',function(){showEdit($('edit').hidden)});
+$('bCancel').addEventListener('click',function(){showEdit(false)});
+// Choosing another event in the dropdown loads it into the form.
+$('eid').addEventListener('change',function(){selId=+$('eid').value;loadForm(selId);render()});
+// SAVE (on screen only). Validate -> copy the values into the event -> remember it in LO -> refresh dropdowns and table.
+// Validation: name and type required, end after start, attendance 2-350. To save to Supabase later, run an update here
+// (e.g. sb.from("event").update({...}).eq("E_id", id)) and only change D if it succeeds.
+$('bSave').addEventListener('click',function(){
+  var x=get(+$('eid').value);if(!x)return;
+  var v={};Object.keys(MAP).forEach(function(k){v[k]=$('f_'+k).value});
+  var err='';
+  v.name=v.name.trim();v.type=v.type.trim();
+  if(!v.name)err='Name is required.';
+  else if(!v.type)err='Type is required.';
+  else if(!(+v.c>0)||!(+v.co>0))err='Client and coordinator are required.';
+  else if(!v.s||!v.e)err='Start and end are required.';
+  else if(!(v.e>v.s))err='End must be after start.';
+  else if(!(+v.att>=2&&+v.att<=350))err='Attendance must be 2–350.';
+  if(err){$('msg').textContent=err;return}
+  x.name=v.name;x.cat=v.cat;x.type=v.type;x.c=+v.c;x.co=+v.co;
+  x.r=v.r===''?null:+v.r;x.s=v.s;x.e=v.e;x.att=Math.round(+v.att);
+  x.pri=v.pri;x.st=v.st;
+  x.fur=v.fur;x.tech=v.tech;x.cater=v.cater;x.notes=v.notes;
+  selId=x.id;LO[x.id]=x;if(x.type&&TYPES.indexOf(x.type)<0){TYPES.push(x.type);TYPES.sort()}buildFilters();fillPick();render();
+  $('msg').textContent='Saved changes to #'+x.id+'.';
+});
+// State of the Show database and Show filters buttons (both off when the page opens).
+var tblShown=false,fgShown=false;
+$('showFil').addEventListener('click',function(){fgShown=!fgShown;syncBtns()});
+$('showTbl').addEventListener('click',function(){tblShown=!tblShown;syncBtns()});
+// STARTUP: default sort (soonest start first), draw the (empty) table, apply button states, then start loading data below.
+$('sort').value='s:asc';render();syncBtns();
+
+// SUPABASE LOADING (READ-ONLY). Plain fetch calls to the REST API, no library needed.
+// Flow: load() fetches the lookup tables and the list of event types once, then calls loadEvents(), which fetches the events
+// using the current filters. Every filter change calls loadEvents() again.
+/* ---- Load data from Supabase (read-only); filters are applied by the database ---- */
+// seq numbers each loadEvents() request so a slow older response never overwrites a newer one.
+var seq=0;
+// GET rows from table t with query string q (default: everything). New "sb_" keys are not JWTs, so only the apikey header is sent;
+// older anon keys also get an Authorization header. Throws an Error with the table name and Supabase message on failure.
+function sbGet(t,q){
+  var h={apikey:SB_KEY};if(SB_KEY.indexOf('sb_')!==0)h.Authorization='Bearer '+SB_KEY; // new sb_ keys are not JWTs: apikey header only
+  return fetch(SB_URL+'/rest/v1/'+t+'?'+(q||'select=*'),{headers:h})
+    .then(function(r){
+      if(!r.ok)return r.text().then(function(m){throw new Error(t+' ('+r.status+') '+m)});
+      return r.json();
+    });
+}
+// Database value -> text. Arrays (e.g. furniture list) become "a, b, c"; null becomes an empty string.
+function txt(v){return Array.isArray(v)?v.join(', '):(v==null?'':String(v))}
+// Database timestamp -> local "YYYY-MM-DDTHH:MM" string (what the date pickers and fmt() expect), in the viewer's time zone.
+function iso(v){
+  if(!v)return null;var d=new Date(v);if(isNaN(d))return null;
+  var p=function(n){return(n<10?'0':'')+n};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
+// Turn lookup-table rows into an {id: name} map using the id column and name function from the LK settings.
+function buildMap(rows,cfg){var m={};rows.forEach(function(r){m[r[cfg.id]]=cfg.name(r)});return m}
+// Convert one database row (E_ columns) into the short field names the page uses. E_space is not used by the page.
+function mapEvent(r){return{
+  id:r.E_id,c:r.C_id,co:r.Co_id,r:r.R_id==null?null:r.R_id,
+  cat:r.E_category,type:r.E_type,name:r.E_name,
+  s:iso(r.E_start)||'',e:iso(r.E_end)||'',att:r.E_attendance,
+  fur:txt(r.E_furniture),tech:txt(r.E_tech),cater:txt(r.E_catering),notes:txt(r.E_notes),
+  pri:r.E_priority,st:r.E_status,cr:iso(r.E_created_at),ar:iso(r.E_archived_at)
+}}
+// Filters sent to Supabase (PostgREST syntax): eq. = equals, gte. / lt. = greater-or-equal / less-than, is.null = empty.
+// The two E_start lines make the date range: from the start of the first day up to the start of the day AFTER the last.
+// Turn the current filter controls into a Supabase (PostgREST) query. Search and sort stay on the page.
+function eventQuery(){
+  var p=['select=*'];
+  function eq(col,v){if(v)p.push(col+'=eq.'+encodeURIComponent(v))}
+  eq('E_category',$('cat').value);eq('E_type',$('type').value);
+  eq('E_status',$('st').value);eq('E_priority',$('pri').value);
+  eq('Co_id',$('co').value);eq('C_id',$('fc').value);
+  var rm=$('room').value;if(rm==='none')p.push('R_id=is.null');else eq('R_id',rm);
+  var am=+$('amin').value;if(am>0)p.push('E_attendance=gte.'+am);
+  var d1=$('d1').value,d2=$('d2').value;
+  if(d1)p.push('E_start=gte.'+encodeURIComponent(new Date(d1+'T00:00:00').toISOString()));
+  if(d2){var n=new Date(d2+'T00:00:00');n.setDate(n.getDate()+1);p.push('E_start=lt.'+encodeURIComponent(n.toISOString()))}
+  p.push($('arc').checked?'E_archived_at=not.is.null':'E_archived_at=is.null');
+  return p.join('&');
+}
+// Fetch events with the current filters, apply on-screen edits (LO) on top, then redraw.
+// Ignores the response if a newer request has started (seq). On error the previous rows stay and the message shows.
+function loadEvents(){
+  var me=++seq;$('dbmsg').textContent='Loading data…';
+  return sbGet(TBL.event,eventQuery()).then(function(rows){
+    if(me!==seq)return;   // a newer filter change replaced this request
+    D=rows.map(mapEvent).map(function(r){return LO[r.id]||r});
+    $('dbmsg').textContent='';render();
+  }).catch(function(err){if(me===seq)$('dbmsg').textContent='Could not load data: '+err.message});
+}
+// First load. Stops with a message if the URL / key still hold the YOUR-... placeholders.
+// Fetches client, coordinator, room and the event types together, builds the dropdowns, then loads the events.
+function load(){
+  if(SB_URL.indexOf('YOUR-')>=0||SB_KEY.indexOf('YOUR-')>=0){
+    $('dbmsg').textContent='Add your Supabase URL and anon key at the top of the script.';return;
+  }
+  $('dbmsg').textContent='Loading data…';
+  Promise.all([sbGet(TBL.client),sbGet(TBL.coord),sbGet(TBL.room),sbGet(TBL.event,'select=E_type')]).then(function(res){
+    CL=buildMap(res[0],LK.client);CO=buildMap(res[1],LK.coord);RM=buildMap(res[2],LK.room);
+    TYPES=[];res[3].forEach(function(r){if(r.E_type&&TYPES.indexOf(r.E_type)<0)TYPES.push(r.E_type)});TYPES.sort();
+    optsMap($('room'),'All rooms',RM,'No room assigned');optsMap($('co'),'All coordinators',CO);optsMap($('fc'),'All clients',CL);
+    optsMap($('f_c'),'',CL);optsMap($('f_co'),'',CO);optsMap($('f_r'),'No room assigned',RM);
+    buildFilters();selId=null;
+    return loadEvents();
+  }).catch(function(err){$('dbmsg').textContent='Could not load data: '+err.message});
+// Kick off the first Supabase load.
+}
+load();
+</script>
+</body>
+</html>
