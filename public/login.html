@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In | Wellspring on Main</title>
+  <style>
+    body { max-width: 480px; margin: 2rem auto; padding: 0 16px; font-family: system-ui, sans-serif; }
+    label { display: block; margin-top: 10px; }
+    input, select { width: 100%; padding: 6px; box-sizing: border-box; }
+    button { margin-top: 12px; margin-right: 8px; padding: 6px 16px; }
+    [hidden] { display: none !important; }
+    .error { color: #b00020; }
+    .ok { color: #1b5e20; }
+  </style>
+</head>
+<body>
+  <h1><a href="/index.html">Wellspring on Main</a></h1>
+  <h2>Arlington's Center for Community Engagement</h2>
+
+  <!-- Signed out -->
+  <section id="signInBox" hidden>
+    <h3>Sign in</h3>
+    <form id="signInForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" minlength="6" required>
+      <button type="submit">Sign in</button>
+      <button type="button" id="signUp">Create account</button>
+    </form>
+  </section>
+
+  <!-- Signed in -->
+  <section id="signedInBox" hidden>
+    <p id="who"></p>
+
+    <!-- Clients without a profile must create one before requesting events -->
+    <form id="profileForm" hidden>
+      <h3>Your client details</h3>
+      <p>We need these before you can request an event.</p>
+      <label for="c_name">Name or organization *</label>
+      <input id="c_name" maxlength="50" required>
+      <label for="c_type">Client type *</label>
+      <select id="c_type" required>
+        <option value="">-- Select --</option>
+        <option value="individual">Individual</option>
+        <option value="commercial">Commercial</option>
+        <option value="non_profit">Non-profit</option>
+        <option value="tenant">Tenant</option>
+        <option value="other">Other</option>
+      </select>
+      <label for="c_email">Contact email *</label>
+      <input id="c_email" type="email" required>
+      <label for="c_phone">Phone (digits only) *</label>
+      <input id="c_phone" inputmode="numeric" required>
+      <button type="submit">Save details</button>
+    </form>
+
+    <nav id="links">
+      <p><a href="/index.html">View event requests</a></p>
+      <p id="requestLink"><a href="/eventForm.html">Request an event</a></p>
+    </nav>
+    <button id="signOut" type="button">Sign out</button>
+  </section>
+
+  <p id="msg" role="status"></p>
+
+  <script type="module">
+    import { supabase, api, signOut } from '/auth.js';
+    const $ = (id) => document.getElementById(id);
+    const next = new URLSearchParams(location.search).get('next');
+
+    function say(text, ok = false) {
+      $('msg').textContent = text;
+      $('msg').className = ok ? 'ok' : 'error';
+    }
+
+    async function render() {
+      const { data: { session } } = await supabase.auth.getSession();
+      $('signInBox').hidden = !!session;
+      $('signedInBox').hidden = !session;
+      if (!session) return;
+
+      const { ok, data: me } = await api('GET', '/api/me');
+      if (!ok) return say(me.error);
+
+      const role = me.isStaff ? 'staff' : 'client';
+      $('who').textContent = `Signed in as ${me.email} (${role}).`;
+      const needsProfile = !me.isStaff && !me.client;
+      $('profileForm').hidden = !needsProfile;
+      $('links').hidden = needsProfile;
+      $('requestLink').hidden = me.isStaff;
+      if (needsProfile) $('c_email').value = me.email;
+      else if (next) location.href = next;
+    }
+
+    $('signInForm').onsubmit = async (e) => {
+      e.preventDefault();
+      say('Signing in…', true);
+      const { error } = await supabase.auth.signInWithPassword({ email: $('email').value, password: $('password').value });
+      if (error) return say(error.message);
+      say('');
+      render();
+    };
+
+    $('signUp').onclick = async () => {
+      if (!$('signInForm').reportValidity()) return;
+      const { data, error } = await supabase.auth.signUp({ email: $('email').value, password: $('password').value });
+      if (error) return say(error.message);
+      if (!data.session) return say('Account created. Check your email to confirm it, then sign in.', true);
+      say('Account created.', true);
+      render();
+    };
+
+    $('profileForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const { ok, data } = await api('POST', '/api/me/client', {
+        c_name: $('c_name').value, c_type: $('c_type').value,
+        c_email: $('c_email').value, c_phone: $('c_phone').value,
+      });
+      if (!ok) return say((data.errors ?? [data.error]).join(' '));
+      say(`Saved. Client #${data.c_id}: ${data.c_name}.`, true);
+      render();
+    };
+
+    $('signOut').onclick = signOut;
+    render();
+  </script>
+</body>
+</html>

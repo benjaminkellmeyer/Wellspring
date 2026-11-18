@@ -159,57 +159,44 @@
 </head>
  
 <body>
-  <!-- ADDED: role selector. Until a user is chosen, this dropdown is the only thing shown on the page. -->
-  <p>
-    <label for="role">I am:
-      <!-- Each option's value is "role:id" (id = c_id for clients, co_id for coordinators); the text is what the user sees. -->
-      <select id="role">
-        <option value="">-- Select a user --</option>
-        <option value="client:4">User - Lone Star Events Co</option>
-        <option value="client:5">User - North Texas Food Alliance</option>
-        <option value="client:6">User - City of Arlington Parks</option>
-        <option value="client:7">User - Jamie Rivera</option>
-        <option value="client:8">User - Riverbend Neighborhood HOA</option>
-        <option value="coordinator:1">Staff - Maria Gonzalez</option>
-        <option value="coordinator:2">Staff - James Carter</option>
-        <option value="coordinator:3">Staff - Priya Patel</option>
-        <option value="coordinator:4">Staff - David Nguyen</option>
-        <option value="coordinator:5">Staff - Aisha Williams</option>
-      </select>
-    </label>
-  </p>
-  <p id="roleBanner"></p>
+  <!-- CHANGED (Assignment 7): the mock "I am:" dropdown was replaced by real Supabase sign-in.
+       The role comes from the server (user_roles table), and the server only returns the rows this user may see. -->
+  <p><span id="roleBanner">Checking sign-in…</span> <button type="button" id="signOut">Sign out</button></p>
   <p id="roleMsg" role="status"></p>
+  <p id="dbmsg" role="status"></p>
  
   <!-- ADDED: wrapper (closed just before the <script> tag). Hidden until a user is selected. -->
   <main id="app" hidden>
   <h1>Event Requests</h1>
-  <p class="sub">Sample data · click a column to sort, click a row for details</p>
+  <p class="sub">Click a column to sort, click a row for details</p>
   <div class="actions">
-    <button id="bCreate" type="button" onclick="window.location.href='eventForm.html';">Create</button>
+    <!-- CHANGED: data-role="client" because event requests are submitted by clients -->
+    <button id="bCreate" type="button" data-role="client" onclick="window.location.href='eventForm.html';">Create</button>
     <button id="bRead" type="button">Read</button>
     <!-- ALTERED: data-role="coordinator" so this button is only shown to coordinators (clients can't update records). -->
     <button id="bUpdate" type="button" data-role="coordinator">Update</button>
   </div>
   <div class="edit" id="edit" hidden>
     <label class="wide">Request to update<select id="eid"></select></label>
-    <label>Name<input id="f_name" maxlength="200"></label>
-    <label>Category<select id="f_cat"></select></label>
-    <label>Type<input id="f_type"></label>
+    <!-- CHANGED (Assignment 7): staff can change Status, Priority, Coordinator and Room. The other fields are shown read-only. -->
+    <p class="wide">Staff can change status, priority, coordinator, and room. Other details are read-only.</p>
+    <label>Name<input id="f_name" maxlength="200" disabled></label>
+    <label>Category<select id="f_cat" disabled></select></label>
+    <label>Type<input id="f_type" disabled></label>
     <!-- ALTERED (Version B): Client, Coordinator and Room are now dropdowns of names (filled by the script) instead of number boxes. -->
-    <label>Client<select id="f_c"></select></label>
+    <label>Client<select id="f_c" disabled></select></label>
     <label>Coordinator<select id="f_co"></select></label>
     <label>Room<select id="f_r"></select></label>
-    <label>Start<input id="f_s" type="datetime-local"></label>
-    <label>End<input id="f_e" type="datetime-local"></label>
-    <label>Attendance (2–350)<input id="f_att" type="number" min="2" max="350"></label>
+    <label>Start<input id="f_s" type="datetime-local" disabled></label>
+    <label>End<input id="f_e" type="datetime-local" disabled></label>
+    <label>Attendance (2–350)<input id="f_att" type="number" min="2" max="350" disabled></label>
     <!-- REMOVED (Sq ft decision): the Sq ft field was dropped everywhere (it had no input here, which caused an error when opening this panel). -->
     <label>Priority<select id="f_pri"></select></label>
     <label>Status<select id="f_st"></select></label>
-    <label>Furniture<input id="f_fur"></label>
-    <label>Technology<input id="f_tech"></label>
-    <label>Catering<input id="f_cater" maxlength="200"></label>
-    <label class="wide">Notes<textarea id="f_notes" rows="3" maxlength="2000"></textarea></label>
+    <label>Furniture<input id="f_fur" disabled></label>
+    <label>Technology<input id="f_tech" disabled></label>
+    <label>Catering<input id="f_cater" maxlength="200" disabled></label>
+    <label class="wide">Notes<textarea id="f_notes" rows="3" maxlength="2000" disabled></textarea></label>
     <div class="btns">
       <button id="bSave" type="button">Save changes</button>
       <button id="bCancel" type="button">Cancel</button>
@@ -253,17 +240,8 @@
 var PR=['urgent','high','medium','low'],
 ST=['submitted','in_progress','scheduled','declined','cancelled','needs_followup','completed'],
 CAT=['public','private','tenant'];
-/* ===== SUPABASE SETTINGS: fill these in ===== */
-var SB_URL='https://ziqfqmmstecdqfxdqejp.supabase.co';   // Project Settings > API > Project URL
-var SB_KEY='sb_publishable_MMCOfLsZGqWU_aAK8UOKKQ_gGB1KIyG';   // publishable (anon) key. Never use the secret/service_role key here
-var TBL={event:'event',client:'client',coord:'coordinator',room:'room'};  // your table names
-// For each lookup table: its id column, and how to build the name shown on the page
-var LK={
-  client:{id:'C_id', name:function(r){return r.C_name}},     // e.g. r.C_first_name+' '+r.C_last_name
-  coord:{id:'Co_id', name:function(r){return r.Co_name}},
-  room:{id:'R_id', name:function(r){return r.R_name}}
-};
-/* ============================================ */
+/* CHANGED (Assignment 7): the page no longer talks to Supabase directly. It calls the Express server
+   (see load() below), which checks the sign-in token and role before reading the database. */
 var CL={},CO={},RM={},D=[];
 function nm(m,id){return id==null?'—':(m[id]||String(id))}
 
@@ -357,14 +335,20 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
       if (k === key) dir = -dir; else { key = k; dir = 1 }
       $('sort').value = ''; render();
     });
-    $('tbody').addEventListener('click', function (e) {
+    $('tbody').addEventListener('click', async function (e) {
       // ADDED (Version B): clicking Archive / Un-archive changes the row's archived date without opening its details
       var ab = e.target.closest('button.abtn');
       if (ab) {
-        // ADDED guard: clients can't archive or un-archive (the buttons aren't drawn for them; this is a second check)
+        // ADDED guard: clients can't archive or un-archive (the buttons aren't drawn for them; the SERVER also rejects it with 403)
         if (currentRole !== 'coordinator') { $('roleMsg').textContent = 'Clients are not allowed to update records.'; return }
         var r = get(+ab.getAttribute('data-id'));
-        if (r) { if (r.ar) doUnarchive(r); else { doArchive(r); recent[r.id] = true } render() }
+        if (!r) return;
+        // CHANGED (Assignment 7): archiving is saved to the database through the server
+        var res = await window.wellspring.api('PATCH', '/api/events/' + r.id, { archived: !r.ar });
+        if (!res.ok) { $('roleMsg').textContent = 'Not saved: ' + res.data.error; return }
+        if (!r.ar) recent[r.id] = true;
+        $('roleMsg').textContent = (r.ar ? 'Un-archived' : 'Archived') + ' request #' + r.id + '.';
+        await load();
         return
       }
       var tr = e.target.closest('tr.row'); if (!tr) return;
@@ -420,31 +404,28 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
         $('roleMsg').textContent = 'Clients are not allowed to update records.';
         return;
       }
+      if (show && !D.length) { $('roleMsg').textContent = 'There are no requests to update.'; return }
       $('edit').hidden = !show;
-      if (show) { if (selId == null) selId = D[0].id; fillPick(); loadForm(selId) }
+      if (show) { if (selId == null || !get(selId)) selId = D[0].id; fillPick(); loadForm(selId) }
       syncBtns();
     }
     $('bUpdate').addEventListener('click', function () { showEdit($('edit').hidden) });
     $('bCancel').addEventListener('click', function () { showEdit(false) });
     $('eid').addEventListener('change', function () { selId = +$('eid').value; loadForm(selId); render() });
-    $('bSave').addEventListener('click', function () {
+    // CHANGED (Assignment 7): Save sends only the changed fields to the server (PATCH /api/events/:id).
+    // The server checks that the user is staff and validates every value before saving.
+    $('bSave').addEventListener('click', async function () {
       var x = get(+$('eid').value); if (!x) return;
-      var v = {}; Object.keys(MAP).forEach(function (k) { v[k] = $('f_' + k).value });
-      var err = '';
-      v.name = v.name.trim(); v.type = v.type.trim();
-      if (!v.name) err = 'Name is required.';
-      else if (!v.type) err = 'Type is required.';
-      else if (!(+v.c > 0) || !(+v.co > 0)) err = 'Client and coordinator are required.'; // ALTERED (Version B): wording now matches the dropdowns
-      else if (!v.s || !v.e) err = 'Start and end are required.';
-      else if (!(v.e > v.s)) err = 'End must be after start.';
-      else if (!(+v.att >= 2 && +v.att <= 350)) err = 'Attendance must be 2–350.';
-      // REMOVED (Sq ft decision): the "Space must be 50–5000 sq ft" check
-      if (err) { $('msg').textContent = err; return }
-      x.name = v.name; x.cat = v.cat; x.type = v.type; x.c = +v.c; x.co = +v.co;
-      x.r = v.r === '' ? null : +v.r; x.s = v.s; x.e = v.e; x.att = Math.round(+v.att);
-      x.pri = v.pri; x.st = v.st; // ALTERED (Sq ft decision): "x.sq = ..." removed from this line
-      x.fur = v.fur; x.tech = v.tech; x.cater = v.cater; x.notes = v.notes;
-      selId = x.id; buildFilters(); fillPick(); render();
+      var body = {};
+      if ($('f_st').value !== x.st) body.status = $('f_st').value;
+      if ($('f_pri').value !== x.pri) body.priority = $('f_pri').value;
+      if ($('f_co').value !== String(x.co)) body.co_id = $('f_co').value;
+      if ($('f_r').value !== (x.r == null ? '' : String(x.r))) body.r_id = $('f_r').value || null;
+      if (!Object.keys(body).length) { $('msg').textContent = 'No changes to save.'; return }
+      $('msg').textContent = 'Saving…';
+      var res = await window.wellspring.api('PATCH', '/api/events/' + x.id, body);
+      if (!res.ok) { $('msg').textContent = 'Not saved: ' + (res.data.errors || [res.data.error]).join(' '); return }
+      selId = x.id; await load(); fillPick(); loadForm(x.id);
       $('msg').textContent = 'Saved changes to #' + x.id + '.';
     });
     /* ALTERED (Version B layout): Show database is now a button (it was a checkbox), and there is a new Show filters button.
@@ -454,15 +435,13 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
     $('showTbl').addEventListener('click', function () { tblShown = !tblShown; syncBtns() });
     $('sort').value = 's:asc'; render(); syncBtns();
  
-    /* ---- ADDED: role selection (mockup only; this is not real security) ----
-       Nothing but the role dropdown shows until a user is picked. Any element with a data-role
-       attribute is shown only to the roles listed in it (space-separated). */
-    var currentRole = '', currentUserId = null;
-    // ADDED: the requests the current user is allowed to see. A client only gets rows whose client id (c)
-    // matches their own c_id; coordinators (and the signed-out state, where the page is hidden anyway) get everything.
-    function scoped() {
-      return currentRole === 'client' ? D.filter(function (x) { return x.c === currentUserId }) : D;
-    }
+    /* ---- CHANGED (Assignment 7): roles come from real sign-in ----
+       The module script at the bottom signs the user in, asks the server for their role, and calls applyRole().
+       Any element with a data-role attribute is shown only to the roles listed in it (space-separated).
+       Hiding elements is only for convenience: the SERVER decides which rows are returned and who may update. */
+    var currentRole = '';
+    // The server already returns only the requests this user may see (clients: their own; staff: all).
+    function scoped() { return D; }
     // ADDED: for client users, trims an id -> name map (rooms, coordinators) down to the ids that appear on their own requests,
     // so their filter lists don't reveal other clients' rooms or staff. Coordinators get the full map.
     function visibleMap(map, k) {
@@ -471,13 +450,9 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
       scoped().forEach(function (x) { if (x[k] != null && map[x[k]] != null) out[x[k]] = map[x[k]] });
       return out;
     }
-    // The dropdown value is "role:id" (for example "client:4" or "coordinator:1"), so it is split
-    // into the role (used by data-role and the update guard) and the id (c_id or co_id, kept in currentUserId).
-    function applyRole(selected) {
-      var parts = selected ? selected.split(':') : [];
-      var role = parts[0] || '';
+    // role is "client" or "coordinator" (staff); label is shown in the banner.
+    function applyRole(role, label) {
       currentRole = role;
-      currentUserId = parts[1] ? +parts[1] : null;
       // Start each user with a clean view: clear the filters, rebuild the filter lists from only their rows, and redraw
       $('reset').click(); buildFilters(); render();
       $('app').hidden = !role;
@@ -485,54 +460,56 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
         el.hidden = !role || el.getAttribute('data-role').split(' ').indexOf(role) < 0;
       });
       if (role !== 'coordinator' && !$('edit').hidden) showEdit(false); // close the update panel if it was open
-      // The banner shows the dropdown's visible text, for example "Viewing as: User - Jamie Rivera"
-      $('roleBanner').textContent = role ? 'Viewing as: ' + $('role').options[$('role').selectedIndex].text : '';
+      $('roleBanner').textContent = role ? 'Signed in as ' + label : '';
       $('roleMsg').textContent = '';
-      try { sessionStorage.setItem('role', selected) } catch (e) { } // remember the choice across page refreshes
     }
-    $('role').addEventListener('change', function () { applyRole(this.value) });
-    var savedRole = '';
-    try { savedRole = sessionStorage.getItem('role') || '' } catch (e) { }
-    if (savedRole) $('role').value = savedRole;
-    if ($('role').selectedIndex < 0) $('role').selectedIndex = 0; // a stale saved value matches no option: fall back to the placeholder
-    applyRole($('role').value);
-  
-  /* ---- Load data from Supabase (read-only) ---- */
-function sbGet(t){
-  var h={apikey:SB_KEY};if(SB_KEY.indexOf('sb_')!==0)h.Authorization='Bearer '+SB_KEY; // new sb_ keys are not JWTs: apikey header only
-  return fetch(SB_URL+'/rest/v1/'+t+'?select=*',{headers:h})
-    .then(function(r){
-      if(!r.ok)return r.text().then(function(m){throw new Error(t+' ('+r.status+') '+m)});
-      return r.json();
-    });
-}
+
+  /* ---- CHANGED (Assignment 7): load data through the Express server ----
+     GET /api/events returns each event with its related client, room and coordinator rows. */
 function txt(v){return Array.isArray(v)?v.join(', '):(v==null?'':String(v))}
 function iso(v){
   if(!v)return null;var d=new Date(v);if(isNaN(d))return null;
   var p=function(n){return(n<10?'0':'')+n};
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
 }
-function buildMap(rows,cfg){var m={};rows.forEach(function(r){m[r[cfg.id]]=cfg.name(r)});return m}
-function load(){
-  if(SB_URL.indexOf('YOUR-')>=0||SB_KEY.indexOf('YOUR-')>=0){
-    $('dbmsg').textContent='Add your Supabase URL and anon key at the top of the script.';return;
-  }
+async function load(){
+  var api=window.wellspring.api, staff=currentRole==='coordinator';
   $('dbmsg').textContent='Loading data…';
-  Promise.all([sbGet(TBL.event),sbGet(TBL.client),sbGet(TBL.coord),sbGet(TBL.room)]).then(function(res){
-    CL=buildMap(res[1],LK.client);CO=buildMap(res[2],LK.coord);RM=buildMap(res[3],LK.room);
-    D=res[0].map(function(r){return{
-      id:r.E_id,c:r.C_id,co:r.Co_id,r:r.R_id==null?null:r.R_id,
-      cat:r.E_category,type:r.E_type,name:r.E_name,
-      s:iso(r.E_start)||'',e:iso(r.E_end)||'',att:r.E_attendance,
-      fur:txt(r.E_furniture),tech:txt(r.E_tech),cater:txt(r.E_catering),notes:txt(r.E_notes),
-      pri:r.E_priority,st:r.E_status,cr:iso(r.E_created_at),ar:iso(r.E_archived_at)
-    }});
-    optsMap($('room'),'All rooms',RM,'No room assigned');optsMap($('co'),'All coordinators',CO);optsMap($('fc'),'All clients',CL);
-    optsMap($('f_c'),'',CL);optsMap($('f_co'),'',CO);optsMap($('f_r'),'No room assigned',RM);
-    buildFilters();selId=null;$('dbmsg').textContent='';render();
-  }).catch(function(err){$('dbmsg').textContent='Could not load data: '+err.message});
+  // archived=1 so the "Show archived" checkbox can work on the page
+  var calls=[api('GET','/api/events?archived=1')];
+  if(staff)calls.push(api('GET','/api/rooms'),api('GET','/api/coordinators')); // full lists for the update dropdowns
+  var res=await Promise.all(calls);
+  if(!res[0].ok){$('dbmsg').textContent='Could not load data: '+res[0].data.error;return}
+  CL={};CO={};RM={};
+  res[0].data.forEach(function(r){
+    if(r.client)CL[r.c_id]=r.client.c_name;
+    if(r.coordinator)CO[r.co_id]=r.coordinator.co_name;
+    if(r.room)RM[r.r_id]=r.room.r_name;
+  });
+  if(staff&&res[1].ok)res[1].data.forEach(function(r){RM[r.r_id]=r.r_name+(r.r_status==='Available'?'':' ('+r.r_status+')')});
+  if(staff&&res[2].ok)res[2].data.forEach(function(c){CO[c.co_id]=c.co_name});
+  D=res[0].data.map(function(r){return{
+    id:r.e_id,c:r.c_id,co:r.co_id,r:r.r_id==null?null:r.r_id,
+    cat:r.e_category,type:r.e_type,name:r.e_name,
+    s:iso(r.e_start)||'',e:iso(r.e_end)||'',att:r.e_attendance,
+    fur:txt(r.e_furniture),tech:txt(r.e_tech),cater:txt(r.e_catering),notes:txt(r.e_notes),
+    pri:r.e_priority,st:r.e_status,cr:iso(r.e_created_at),ar:iso(r.e_archived_at)
+  }});
+  optsMap($('fc'),'All clients',CL);
+  optsMap($('f_c'),'',CL);optsMap($('f_co'),'',CO);optsMap($('f_r'),'No room assigned',RM);
+  buildFilters();$('dbmsg').textContent=D.length?'':'No event requests yet.';render();
 }
-load();
+  </script>
+
+  <!-- ADDED (Assignment 7): sign-in check. Sends signed-out visitors to the sign-in page. -->
+  <script type="module">
+    import { requireSignIn, signOut } from '/auth.js';
+    document.getElementById('signOut').onclick = signOut;
+    const me = await requireSignIn();
+    if (!me.isStaff && !me.client) location.href = '/login.html'; // new client: create profile first
+    const label = me.email + (me.isStaff ? ' (staff)' : ' (client: ' + me.client.c_name + ')');
+    applyRole(me.isStaff ? 'coordinator' : 'client', label);
+    await load();
   </script>
 </body>
  

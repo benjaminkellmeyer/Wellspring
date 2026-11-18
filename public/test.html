@@ -38,7 +38,7 @@
   <div id="clientForm">
     <label for="c_name">Name</label><input id="c_name">
     <label for="c_type">Type</label>
-    <select id="c_type"><option>individual</option><option>organization</option></select>
+    <select id="c_type"><option>individual</option><option>commercial</option><option>non_profit</option><option>tenant</option><option>other</option></select>
     <label for="c_email">Contact email</label><input id="c_email" type="email">
     <label for="c_phone">Phone</label><input id="c_phone">
     <button id="saveClient">Save client details (POST)</button>
@@ -49,7 +49,7 @@
   <h2>3. Send an inquiry (POST)</h2>
   <label for="i_name">Event name</label><input id="i_name" value="Test inquiry">
   <label for="i_type">Type</label>
-  <select id="i_type"><option>booking</option><option>question</option></select>
+  <select id="i_type"><option>tour</option><option>spaces</option><option>general_info</option><option>donation</option></select>
   <label for="i_bodytext">Message</label><textarea id="i_bodytext" rows="3">Testing the connection from GitHub Pages.</textarea>
   <button id="sendInquiry">Send inquiry</button>
 
@@ -73,7 +73,7 @@
 
   // ── Paste your project's values here (Dashboard → Project Settings → API Keys).
   // The publishable/anon key is safe to put in a public page; never use the secret/service_role key here.
-  const SUPABASE_URL = 'https://ziqfqmmstecdqfxdqejp.supabase.co/rest/v1/';
+  const SUPABASE_URL = 'https://ziqfqmmstecdqfxdqejp.supabase.co'; // base URL only (no /rest/v1/)
   const SUPABASE_KEY = 'sb_publishable_MMCOfLsZGqWU_aAK8UOKKQ_gGB1KIyG';
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -138,8 +138,9 @@
   $('saveClient').onclick = async () => {
     const { data, error } = await supabase.from('client').insert({
       c_name: $('c_name').value, c_type: $('c_type').value,
-      c_email: $('c_email').value, c_phone: $('c_phone').value
-      // user_id is filled in by the database from the logged-in user
+      c_email: $('c_email').value, c_phone: $('c_phone').value,
+      user_id: (await supabase.auth.getUser()).data.user.id // RLS only allows your own user_id
+
     }).select().single();
     log('POST client', error ?? data);
     if (!error) render((await supabase.auth.getSession()).data.session);
