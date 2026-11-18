@@ -10,13 +10,19 @@
 -- Client Sample Data
 --------------------------------------------------------------------
 --this creates sample client data
+--The inquiry and event sample data below refer to clients 4-8, so these rows are given
+--those ids explicitly (OVERRIDING SYSTEM VALUE). Without this, a new database numbers
+--them 1-5 and the inquiry/event inserts fail with a foreign key error.
 
-INSERT INTO public.client (c_type, c_name, c_email, c_phone) VALUES
-    ('commercial', 'Lone Star Events Co',       'bookings@lonestarevents.com',   '2145550101'),
-    ('non_profit', 'North Texas Food Alliance', 'info@ntfoodalliance.org',       '8175550102'),
-    ('individual', 'Jamie Rivera',              'jamie.rivera@example.com',      '9725550104'),
-    ('other',      'Riverbend Neighborhood HOA','board@riverbendhoa.example.net','4695550105'),
-    ('tenant',     'Arlington Parks Department','parks@arlingtontx.example.gov', '8175550103');
+INSERT INTO public.client (c_id, c_type, c_name, c_email, c_phone) OVERRIDING SYSTEM VALUE VALUES
+    (4, 'commercial', 'Lone Star Events Co',       'bookings@lonestarevents.com',   '2145550101'),
+    (5, 'non_profit', 'North Texas Food Alliance', 'info@ntfoodalliance.org',       '8175550102'),
+    (6, 'tenant',     'Arlington Parks Department','parks@arlingtontx.example.gov', '8175550103'),
+    (7, 'individual', 'Jamie Rivera',              'jamie.rivera@example.com',      '9725550104'),
+    (8, 'other',      'Riverbend Neighborhood HOA','board@riverbendhoa.example.net','4695550105');
+
+--Move the id counter past the ids used above, so the next new client gets c_id 9
+SELECT setval(pg_get_serial_sequence('public.client', 'c_id'), (SELECT max(c_id) FROM public.client));
 
 
 --------------------------------------------------------------------
