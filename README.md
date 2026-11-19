@@ -16,7 +16,9 @@ The Express server runs locally and stores records in Supabase. A public deploym
 A Render account (free). The easiest way to do this is to use GitHub to sign up for it so that you can immediately connect your repo. Make sure to select the “Free” instance type.
 ### Install the project
 In the project's main folder, run:
+```
 npm install
+```
 
 ### Set up the database
 In the Supabase SQL Editor, run these files in order:
@@ -34,17 +36,23 @@ No passwords are included in this submission.
 If setting up in Render, choose New > Web Service (top right), and choose to build from a Git repository. Connect it to the appropriate GitHub repository with the server files, (configure GitHub App if Render needs access to see your repositories, choose “Only select repositories” and select your desired repository). Then, make sure the server name, region, branch, root directory, runtime/language, build command, and start command all match what you have in GitHub, and make sure the instance type is “Free to start.” 
 ### Configure the application
 Copy `.env.example` to a new file named `.env` and enter your project's values (Supabase → Project Settings → API Keys):
+```
 PORT=3000
 SUPABASE_URL=https://ziqfqmmstecdqfxdqejp.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_MMCOfLsZGqWU_aAK8UOKKQ_gGB1KIyG
+```
 NOTE: YOU ALSO NEED THE SUPABASE_SECRET_KEY but we are not providing it here due to security concerns. Contact us directly to obtain it.
 
 The server sends only the publishable key to the browser (through `/api/config`) so users can sign in. The secret key stays on the server.
 If running this on Render, go to Render and give it the Supabase URL, publishable key, and secret key. To do this, open the project, go to Environment (on the side navigation), and put in the three variables with the exact variable names and values as in the .env file. You do not need to set PORT yourself.
 ### Start the application
-Use this command: npm start
+Use this command: 
+```
+npm start
+```
 Open http://localhost:3000. Keep the terminal running while you use the feature.
-If using Render, when you create the web service, Render should automatically deploy. If not, you can manually deploy. Watch the Logs or Events pages and make sure no errors appear. You then should be able to open your Render page using the URL.
+
+Or, if using Render, when you create the web service, Render should automatically deploy. If not, you can manually deploy. Watch the Logs or Events pages and make sure no errors appear. You then should be able to open your Render page using the URL.
 If you get any errors, check Logs.
 
 ## 3. Try the workflow
@@ -140,8 +148,8 @@ curl -i -X PATCH http://localhost:3000/api/events/1 -H "Content-Type: applicatio
 
 | Member | Main contribution |
 |--------|-------------------|
-| Benjamin Kellmeyer | Event Form, GitHub and Supabase management, testing] |
-| Aiden Granger | [Success Page, sign-in, validation, and permissions, testing] |
+| Benjamin Kellmeyer | Event Form, GitHub and Supabase management, testing |
+| Aiden Granger | Success Page, sign-in, validation, and permissions, testing |
 | Ethan Cassara | Home (dashboard) page, sample data, testing |
 
 **AI use:** 
