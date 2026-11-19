@@ -204,9 +204,9 @@
     </div>
   </div>
   <!-- ALTERED (Version B layout): the filter area starts hidden (Read shows it). It now has a button bar
-       (Show database / Show filters / Reset filters) above a collapsible grid of filter fields. -->
+       (Show filters / Reset filters) above a collapsible grid of filter fields. -->
   <div class="filters" hidden>
-    <div class="fbar"><button id="showTbl" type="button" aria-pressed="false">Show database</button><button id="showFil" type="button" aria-pressed="false">Show filters</button><button id="reset" type="button">Reset filters</button></div>
+    <div class="fbar"><button id="showFil" type="button" aria-pressed="false">Show filters</button><button id="reset" type="button">Reset filters</button></div>
     <div class="fgrid" id="fgrid" hidden>
       <label>Search<input id="q" placeholder="Name, type, notes, ID"></label>
       <!-- ADDED (Version B filter): Client filter. data-role="coordinator" hides it from client users so they can't see other clients' names. -->
@@ -225,9 +225,9 @@
     </div>
   </div>
   <!-- ALTERED (Version B layout): the count is only shown together with the table (Show database). -->
-  <div class="bar"><span id="count" hidden></span></div>
+  <div class="bar"><span id="count"></span></div>
   <div id="dbmsg" class="dbmsg"></div>
-  <div class="wrap" id="tblwrap" hidden>
+  <div class="wrap" id="tblwrap">
     <table>
       <thead id="thead"></thead>
       <tbody id="tbody"></tbody>
@@ -372,7 +372,7 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
       var f = document.querySelector('.filters');
       if (f.hidden) f.hidden = false;            // show filters (update panel left as is)
       else if (!$('edit').hidden) $('edit').hidden = true; // update open: keep filters, close update
-      else { f.hidden = true; fgShown = false; tblShown = false } // ALTERED (Version B): plain read mode also hides the panel and clears Show filters / Show database
+      else { f.hidden = true; fgShown = false;} // ALTERED (Version B): plain read mode also hides the panel and clears Show filters / Show database
       syncBtns();
     });
     function get(id) { for (var i = 0; i < D.length; i++)if (D[i].id === id) return D[i]; return null }
@@ -393,8 +393,6 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
       $('bRead').classList.toggle('on', f); $('bRead').setAttribute('aria-pressed', f);
       $('bUpdate').classList.toggle('on', u); $('bUpdate').setAttribute('aria-pressed', u);
       $('fgrid').hidden = !fgShown; $('showFil').classList.toggle('on', fgShown); $('showFil').setAttribute('aria-pressed', fgShown);
-      $('tblwrap').hidden = !tblShown; $('count').hidden = !tblShown;
-      $('showTbl').classList.toggle('on', tblShown); $('showTbl').setAttribute('aria-pressed', tblShown);
     }
     function showEdit(show) {
       /* ALTERED: added this guard so a client can never open the update panel, even if the Update button
@@ -430,9 +428,8 @@ function nm(m,id){return id==null?'—':(m[id]||String(id))}
     });
     /* ALTERED (Version B layout): Show database is now a button (it was a checkbox), and there is a new Show filters button.
        fgShown / tblShown track whether the filter grid and the table are open. */
-    var tblShown = false, fgShown = false;
+    var fgShown = false;
     $('showFil').addEventListener('click', function () { fgShown = !fgShown; syncBtns() });
-    $('showTbl').addEventListener('click', function () { tblShown = !tblShown; syncBtns() });
     $('sort').value = 's:asc'; render(); syncBtns();
  
     /* ---- CHANGED (Assignment 7): roles come from real sign-in ----
