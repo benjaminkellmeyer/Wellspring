@@ -1,16 +1,25 @@
 {
   "name": "wellspring-dashboard",
-    "version": "1.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.js" },
-    "engines": {
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "prestart": "astro build",
+    "start": "node server.js",
+    "api": "node server.js"
+  },
+  "engines": {
     "node": ">=22"
   },
-
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
     "dotenv": "^18.0.10",
     "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "astro": "7.4.1",
+    "cookie": "^2.0.2"
   }
 }

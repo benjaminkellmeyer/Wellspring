@@ -1,0 +1,25 @@
+---
+// Staff portal page frame: skip link, staff header, and a .staff-wrap main area on gray-50.
+import '../styles/tokens.css';
+import '../styles/global.css';
+import '../styles/staff.css';
+import StaffHeader from '../components/StaffHeader.astro';
+interface Props { title: string; name?: string; initials?: string; role?: string }
+const { title, name, initials, role } = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} | Wellspring Staff</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body class="staff">
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <StaffHeader name={name} initials={initials} role={role} />
+    <main id="main" class="staff-wrap staff-main"><slot /></main>
+  </body>
+</html>

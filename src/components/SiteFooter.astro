@@ -1,0 +1,44 @@
+---
+// Public footer. Link groups are placeholders: match them to the public-site team's footer.
+import BrandMark from './BrandMark.astro';
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="container">
+    <BrandMark />
+    <div class="footer-nav">
+      <div>
+        <h2>Visit</h2>
+        <ul>
+          <li>201 W. Main St.</li>
+          <li>Downtown Arlington, Texas</li>
+          <li><a href="/contact">Contact us</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Spaces</h2>
+        <ul>
+          <li><a href="/spaces">Rooms and capacity</a></li>
+          <li><a href="/eventForm.html">Book a space</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Community</h2>
+        <ul>
+          <li><a href="/events">Events</a></li>
+          <li><a href="/get-involved">Get involved</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Staff</h2>
+        <ul>
+          <li><a href="/login.html">Staff sign in</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="legal">
+      <span>© {year} Wellspring on Main</span>
+      <span>Arlington's Center for Community Engagement</span>
+    </div>
+  </div>
+</footer>

@@ -49,5 +49,53 @@ export async function signOut() {
   location.href = '/login.html';
 }
 
+// Fills the staff header's signed-in block (StaffHeader.astro) and wires its Sign out button.
+// Pass null to hide the block (signed out). Does nothing on pages without the header.
+export function showStaffHeader(me) {
+  const who = document.getElementById('who');
+  if (!who) return;
+  who.hidden = !me;
+  if (!me) return;
+  const name = me.client?.c_name ?? me.email;
+  const words = String(name).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+  document.getElementById('whoName').textContent = name;
+  document.getElementById('whoInitials').textContent =
+    ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase() || '?';
+  document.getElementById('whoRole').textContent = me.isStaff ? 'Staff' : 'Client';
+  document.getElementById('signOut').onclick = signOut;
+}
+
+// Marks invalid required fields in a form (aria-invalid) and returns a list of
+// "Label: problem" messages. Empty list = valid. Uses the browser's own checks.
+export function formProblems(form) {
+  const problems = [];
+  form.querySelectorAll('input:not([type="checkbox"]), select, textarea').forEach((el) => {
+    const bad = !el.checkValidity();
+    el.setAttribute('aria-invalid', bad ? 'true' : 'false');
+    const label = form.querySelector(`label[for="${el.id}"]`)?.textContent.trim() ?? el.name;
+    if (bad) problems.push(`${label}: ${el.validationMessage}`);
+  });
+  return problems;
+}
+
+// Shows a message in an element as a design-system alert.
+// kind: 'error' | 'success' | 'info'. items: optional list shown under the text.
+// Uses textContent only, so server text cannot inject HTML.
+export function showAlert(el, kind, text, items = []) {
+  el.hidden = !text;
+  el.className = text ? `alert alert-${kind}` : '';
+  el.textContent = '';
+  if (!text) return;
+  const strong = document.createElement(items.length ? 'strong' : 'span');
+  strong.textContent = text;
+  el.append(strong);
+  if (items.length) {
+    const ul = document.createElement('ul');
+    ul.style.margin = '4px 0 0';
+    items.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ul.append(li); });
+    el.append(ul);
+  }
+}
+
 // Exposed for the README's direct server checks in the browser console.
 window.wellspring = { supabase, api, getToken };

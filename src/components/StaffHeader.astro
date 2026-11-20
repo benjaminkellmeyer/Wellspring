@@ -1,0 +1,20 @@
+---
+// Staff portal header.
+// - With a name prop, the signed-in block shows those values (used by the style guide).
+// - Without one, the block starts hidden; a page script fills #whoName, #whoInitials, #whoRole
+//   and un-hides #who after sign-in. The sign-out button has id="signOut".
+import BrandMark from './BrandMark.astro';
+interface Props { name?: string; initials?: string; role?: string }
+const { name, initials = '', role = '' } = Astro.props;
+---
+<header class="staff-header">
+  <div class="staff-wrap staff-header-inner">
+    <BrandMark href="/index.html" />
+    <div class="who" id="who" hidden={!name}>
+      <span class="avatar" id="whoInitials" aria-hidden="true">{initials}</span>
+      <span class="who-name" id="whoName">{name}</span>
+      <span class="role-tag" id="whoRole">{role}</span>
+      <button type="button" class="btn btn-secondary btn-sm" id="signOut">Sign out</button>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,371 @@
+---
+// Style guide: every token and component in the Wellspring on Main design system.
+// Built to /style-guide.html. Not linked from the site; for designers and developers.
+import PublicLayout from '../layouts/PublicLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import StaffHeader from '../components/StaffHeader.astro';
+import UtilityBar from '../components/UtilityBar.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+import '../styles/staff.css';
+
+const colorGroups = [
+  { name: 'Text', items: [
+    ['--ink', '#151b1c', 'Headings, body text, footer background'],
+    ['--ink-2', '#374144', 'Secondary text, nav links'],
+    ['--ink-3', '#4e595c', 'Lead paragraphs, captions, help text'],
+  ]},
+  { name: 'Lines', items: [
+    ['--line', '#e3e7e8', 'Card and section borders'],
+    ['--line-2', '#cbd2d4', 'Input borders, secondary button border'],
+  ]},
+  { name: 'Brand teal (primary)', items: [
+    ['--teal-900', '#0e363c', 'Utility bar, staff header, h1 color'],
+    ['--teal-700', '#145660', 'Primary hover, tag text'],
+    ['--teal-600', '#176a75', 'Primary button, links, brand mark, eyebrow'],
+    ['--teal-500', '#1f828e', 'Focus ring, active nav underline'],
+    ['--teal-300', '#72bdc5', 'Dashed placeholder borders'],
+    ['--teal-200', '#a8d8dd', 'Pill borders, staff tagline'],
+    ['--teal-100', '#d3ecee', 'Image placeholders, input focus halo'],
+    ['--teal-50', '#eef7f8', 'Hero and band backgrounds, icon tiles, chips'],
+  ]},
+  { name: 'Accent coral', items: [
+    ['--coral-700', '#b8462a', 'Error text, tag text on coral-100'],
+    ['--coral-500', '#f2734a', 'Coral button, always with --ink text'],
+    ['--coral-300', '#f7a585', 'Coral button hover, avatar'],
+    ['--coral-100', '#fde4da', 'CTA panel, pending badges, error alerts'],
+  ]},
+  { name: 'Neutral backgrounds', items: [
+    ['--gray-50', '#f8fafa', 'Gray bands, staff page background'],
+    ['--gray-100', '#f1f3f4', 'Table headers, inline code, neutral badges'],
+  ]},
+  { name: 'Fixed values (not tokens)', items: [
+    ['#fff', '#ffffff', 'Page and card background'],
+    ['footer legal', '#9aa5a8', 'Footer legal text'],
+    ['pending review bg', '#fdf1d3', '"Pending review" badge background'],
+    ['pending review text', '#7a5300', '"Pending review" badge text'],
+    ['error alert text', '#6b2412', 'Error alert text'],
+  ]},
+];
+
+const typeScale = [
+  ['Home hero h1', '56/64 · 700 · −0.02em · teal-900 (40/48 ≤640px)', 'font-size:56px;line-height:64px;font-weight:700;letter-spacing:-0.02em;color:var(--teal-900)'],
+  ['Page hero h1', '48/56 · 700 · −0.02em · teal-900 (34/42 ≤640px)', 'font-size:48px;line-height:56px;font-weight:700;letter-spacing:-0.02em;color:var(--teal-900)'],
+  ['Large section h2', '40/48 · 700 · −0.015em (32/40 ≤640px)', 'font-size:40px;line-height:48px;font-weight:700;letter-spacing:-0.015em'],
+  ['.h2', '32/40 · 600 · −0.01em', 'font-size:32px;line-height:40px;font-weight:600;letter-spacing:-0.01em'],
+  ['Card h3', '24/32 · 600', 'font-size:24px;line-height:32px;font-weight:600'],
+  ['Staff h1', '30/38 · 700 · −0.015em · teal-900', 'font-size:30px;line-height:38px;font-weight:700;letter-spacing:-0.015em;color:var(--teal-900)'],
+  ['Staff h2', '18/26 · 600', 'font-size:18px;line-height:26px;font-weight:600'],
+  ['.lead', '18/28 · ink-3', 'font-size:18px;line-height:28px;color:var(--ink-3)'],
+  ['Body', '16/24 · 400', 'font-size:16px;line-height:24px'],
+  ['.small', '14/20', 'font-size:14px;line-height:20px'],
+  ['.eyebrow', '14/20 · 600 · teal-600', 'font-size:14px;line-height:20px;font-weight:600;color:var(--teal-600)'],
+  ['Tags and badges', '12 · 600', 'font-size:12px;line-height:16px;font-weight:600'],
+  ['Table header', '12 · 600 · 0.04em · uppercase · ink-2', 'font-size:12px;line-height:16px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--ink-2)'],
+];
+
+const radii = [['4px', 'Inline code'], ['8px', 'Buttons, inputs, alerts'], ['12px', 'Cards, panels, tables, FAQ, icon tiles'], ['16px', 'Hero photo, CTA panel, placeholders'], ['9999px', 'Pills, chips, badges, brand mark']];
+const shadows = [
+  ['Card', '0 1px 2px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.1)'],
+  ['Hero photo', '0 8px 16px -4px rgba(0,0,0,.08), 0 20px 32px -6px rgba(0,0,0,.14)'],
+  ['Staff panel', '0 1px 2px rgba(14,54,60,.04)'],
+  ['Task card hover', '0 4px 12px rgba(14,54,60,.08)'],
+];
+const spacing = [4, 8, 12, 16, 20, 24, 32, 48, 64];
+const statuses = ['pending', 'needs_update', 'approved', 'current', 'pending_review', 'rejected', 'archived'];
+const buttons = [['btn-primary', 'Primary'], ['btn-secondary', 'Secondary'], ['btn-coral', 'Check availability'], ['btn-white', 'White']];
+---
+<PublicLayout title="Style guide" description="Wellspring on Main design tokens and components">
+  <PageHero eyebrow="Design system" title="Wellspring style guide" lead="Every token and component shared by the Wellspring on Main public site and staff portal. Use these class names so markup moves between projects unchanged.">
+    <Fragment slot="actions">
+      <a class="btn btn-primary" href="#colors">Colors</a>
+      <a class="btn btn-secondary" href="#components">Components</a>
+    </Fragment>
+  </PageHero>
+
+  <!-- ===== Colors ===== -->
+  <section class="container" id="colors">
+    <h2>Colors</h2>
+    {colorGroups.map((g) => (
+      <>
+        <h3>{g.name}</h3>
+        <ul class="sg-swatches">
+          {g.items.map(([token, hex, use]) => (
+            <li>
+              <span class="sg-chip" style={`background:${hex}`}></span>
+              <code>{token}</code>
+              <span class="small">{hex}</span>
+              <span class="small muted">{use}</span>
+            </li>
+          ))}
+        </ul>
+      </>
+    ))}
+  </section>
+
+  <!-- ===== Type ===== -->
+  <section class="band-gray">
+    <div class="container">
+      <h2>Type</h2>
+      <p class="lead">Inter, weights 400, 500, 600 and 700. Stack: <code>Inter, system-ui, sans-serif</code>.</p>
+      <div class="sg-type">
+        {typeScale.map(([name, spec, style]) => (
+          <div class="sg-type-row">
+            <div class="small muted"><strong>{name}</strong><br />{spec}</div>
+            <div style={style}>Community starts here</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Spacing, radii, shadows, focus ===== -->
+  <section class="container">
+    <h2>Spacing, radii, shadows</h2>
+    <h3>Spacing</h3>
+    <ul class="sg-spacing">
+      {spacing.map((s) => <li><span style={`width:${s}px`}></span><span class="small">{s}px</span></li>)}
+    </ul>
+    <h3>Radii</h3>
+    <ul class="sg-boxes">
+      {radii.map(([r, use]) => <li><span class="sg-box" style={`border-radius:${r}`}></span><code>{r}</code><span class="small muted">{use}</span></li>)}
+    </ul>
+    <h3>Shadows</h3>
+    <ul class="sg-boxes">
+      {shadows.map(([name, s]) => <li><span class="sg-box sg-box-white" style={`box-shadow:${s}`}></span><strong class="small">{name}</strong><span class="small muted">{s}</span></li>)}
+    </ul>
+    <h3>Focus</h3>
+    <p>Press <kbd>Tab</kbd> to move through this page. Links, buttons and summaries show a 2px white gap and a 2px <code>--teal-500</code> ring. Inputs use a <code>--teal-500</code> border and <code>--teal-100</code> halo.</p>
+  </section>
+
+  <!-- ===== Buttons and links ===== -->
+  <section class="band-gray" id="components">
+    <div class="container">
+      <h2>Buttons and links</h2>
+      <div class="sg-btn-table">
+        <div class="small muted">Variant</div><div class="small muted">Default</div><div class="small muted">Hover preview</div><div class="small muted">Disabled</div>
+        {buttons.map(([cls, label]) => (
+          <>
+            <code>.{cls}</code>
+            <div class={cls === 'btn-white' ? 'sg-on-teal' : ''}><button type="button" class={`btn ${cls}`}>{label}</button></div>
+            <div class={cls === 'btn-white' ? 'sg-on-teal' : ''}><button type="button" class={`btn ${cls} is-hover`}>{label}</button></div>
+            <div class={cls === 'btn-white' ? 'sg-on-teal' : ''}><button type="button" class={`btn ${cls}`} disabled>{label}</button></div>
+          </>
+        ))}
+      </div>
+      <h3>Sizes</h3>
+      <div class="button-row">
+        <button type="button" class="btn btn-primary btn-sm">.btn-sm (36px)</button>
+        <button type="button" class="btn btn-primary">.btn (44px)</button>
+        <button type="button" class="btn btn-primary btn-lg">.btn-lg (48px)</button>
+        <button type="button" class="btn btn-coral btn-lg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          With icon
+        </button>
+      </div>
+      <h3>Text link, pill, icon tile, chips</h3>
+      <p><a class="text-link" href="#components">See all spaces →</a></p>
+      <p><span class="pill">Free for nonprofits</span></p>
+      <div class="icon-tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <p></p>
+      <ul class="chips"><li>Weddings</li><li>Workshops</li><li>Community meetings</li></ul>
+      <p></p>
+      <ul class="mini-tags"><li>Projector</li><li>Wi-Fi</li><li>Up to 120</li></ul>
+      <h3>Check list</h3>
+      <ul class="check-list"><li>Tables and chairs included</li><li>Wheelchair accessible</li><li>Kitchen access on request</li></ul>
+    </div>
+  </section>
+
+  <!-- ===== Forms ===== -->
+  <section class="container">
+    <h2>Forms</h2>
+    <div class="card-grid">
+      <form class="panel" onsubmit="return false">
+        <div class="field">
+          <label for="sg-name">Event name</label>
+          <input id="sg-name" value="Rivera Family Birthday" />
+          <span class="field-help">Up to 200 characters.</span>
+        </div>
+        <div class="field">
+          <label for="sg-room">Room</label>
+          <select id="sg-room"><option>Garden Pavilion (up to 120)</option><option>Wellspring Hall (up to 350)</option></select>
+        </div>
+        <div class="field">
+          <label for="sg-att">Attendance</label>
+          <input id="sg-att" value="500" aria-invalid="true" aria-describedby="sg-att-err" />
+          <span class="field-error" id="sg-att-err">Attendance must be a whole number between 2 and 350.</span>
+        </div>
+        <div class="field">
+          <label for="sg-notes">Notes</label>
+          <textarea id="sg-notes"></textarea>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-primary">Submit request</button>
+          <button class="btn btn-secondary" type="button">Cancel</button>
+        </div>
+      </form>
+      <div>
+        <h3>Toolbar</h3>
+        <div class="toolbar">
+          <div class="field"><label for="sg-q">Search</label><input id="sg-q" placeholder="Name or room" /></div>
+          <div class="field"><label for="sg-st">Status</label><select id="sg-st"><option>All</option><option>Pending</option></select></div>
+          <button type="button" class="btn btn-secondary btn-sm">Reset</button>
+        </div>
+        <h3>Narrow panel</h3>
+        <div class="panel narrow">
+          <h2 style="font-size:18px;line-height:26px;font-weight:600;letter-spacing:0">Staff sign in</h2>
+          <div class="field"><label for="sg-email">Email</label><input id="sg-email" type="email" /></div>
+          <button type="button" class="btn btn-primary">Sign in</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Status and alerts ===== -->
+  <section class="band-gray">
+    <div class="container">
+      <h2>Status badges and alerts</h2>
+      <div class="button-row" style="margin-bottom:24px">
+        {statuses.map((s) => <span class={`status status-${s}`}>{s.replace(/_/g, ' ')}</span>)}
+      </div>
+      <div class="alert alert-error" role="alert"><strong>Please fix the following:</strong> Attendance must be between 2 and 350.</div>
+      <div class="alert alert-info">Requests are reviewed within two business days.</div>
+      <div class="alert alert-success" role="status">Request #42 was saved. Status: Submitted.</div>
+    </div>
+  </section>
+
+  <!-- ===== Cards, placeholders, database slots ===== -->
+  <section class="container">
+    <h2>Cards and placeholders</h2>
+    <div class="card-grid">
+      <article class="card">
+        <div class="placeholder">Photo · Garden Pavilion</div>
+        <div class="card-body">
+          <h3>Garden Pavilion</h3>
+          <p class="muted">Open-air space for up to 120 guests.</p>
+          <ul class="mini-tags"><li>Up to 120</li><li>Outdoor</li></ul>
+          <p></p>
+          <a class="text-link" href="#components">View space →</a>
+        </div>
+      </article>
+      <div class="placeholder tone-coral">.tone-coral</div>
+      <div class="placeholder tone-gray">.tone-gray</div>
+      <div class="placeholder tone-teal-dark">.tone-teal-dark</div>
+      <div class="placeholder hero-photo">Hero photo (16px radius + hero shadow)</div>
+    </div>
+    <h3 style="margin-top:32px">Database slots</h3>
+    <div class="card-grid">
+      <div class="db-slot">
+        <span class="db-slot-tag">Placeholder · Content &amp; Community</span>
+        <p class="muted">Upcoming programs load here from the database.</p>
+      </div>
+      <div class="db-slot db-slot-events">
+        <span class="db-slot-tag">Placeholder · Events</span>
+        <p class="muted">Event requests load here from the database.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Table and task cards ===== -->
+  <section class="band-gray">
+    <div class="container">
+      <h2>Table and task cards</h2>
+      <div class="data-table">
+        <table>
+          <thead><tr><th>ID</th><th>Event</th><th>Client</th><th>Room</th><th>Start</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>42</td><td>Rivera Family Birthday</td><td>Jamie Rivera</td><td>Garden Pavilion</td><td>Dec 5, 2:00 PM</td><td><span class="status status-pending">pending</span></td></tr>
+            <tr><td>41</td><td>Resident Town Hall</td><td>Lone Star Events Co</td><td>Wellspring Hall</td><td>Jan 19, 6:00 PM</td><td><span class="status status-approved">approved</span></td></tr>
+            <tr><td>40</td><td>Board Meeting</td><td>North Texas Food Alliance</td><td>Grand Ballroom</td><td>Jan 14, 9:00 AM</td><td><span class="status status-rejected">rejected</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-grid" style="margin-top:24px">
+        <a class="task-card" href="#components"><span class="task-title">Review event requests →</span><p>3 requests are waiting for a decision.</p></a>
+        <a class="task-card" href="#components"><span class="task-title">Update room availability →</span><p>Mark rooms closed or under renovation.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ, testimonial, CTA, mission note ===== -->
+  <section class="container">
+    <h2>FAQ</h2>
+    <details class="faq" open><summary>How far ahead can I book?</summary><p>Up to twelve months ahead, subject to availability.</p></details>
+    <details class="faq"><summary>Is parking free?</summary><p>Yes, in the lot behind the building.</p></details>
+  </section>
+  <section class="testimonial">
+    <div class="container">
+      <figure style="margin:0">
+        <blockquote>“Wellspring gave our neighborhood association a place to meet that feels like home.”</blockquote>
+        <figcaption>Fictional quote · Riverbend Neighborhood HOA</figcaption>
+      </figure>
+    </div>
+  </section>
+  <section class="container">
+    <div class="cta">
+      <div>
+        <h2 class="h2">Planning an event?</h2>
+        <p>Tell us your date and group size, and we'll suggest a room.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-lg btn-coral" href="/eventForm.html">Check availability</a>
+        <a class="btn btn-lg btn-secondary" href="/contact">Contact us</a>
+      </div>
+    </div>
+  </section>
+  <section class="mission-note">
+    <div class="container mission-note-inner">
+      <div class="icon-tile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+      </div>
+      <div>
+        <p class="mission-note-title">Our mission</p>
+        <p>A shared space in downtown Arlington where neighbors, nonprofits and organizers can gather.</p>
+        <a class="text-link" href="/about">About Wellspring →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Headers ===== -->
+  <section class="container">
+    <h2>Headers</h2>
+    <h3>Public: utility bar and site header</h3>
+    <div class="sg-frame">
+      <UtilityBar />
+      <SiteHeader current="Events" />
+    </div>
+    <h3 style="margin-top:32px">Staff header</h3>
+    <div class="sg-frame">
+      <StaffHeader name="Morgan Lee" initials="ML" role="Staff" />
+    </div>
+    <p class="small muted" style="margin-top:12px">The public footer is at the bottom of this page.</p>
+  </section>
+</PublicLayout>
+
+<style>
+  /* Layout helpers for this page only. All colors come from the tokens. */
+  .sg-swatches { list-style: none; padding: 0; margin: 0 0 32px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+  .sg-swatches li { display: grid; gap: 2px; }
+  .sg-chip { height: 64px; border-radius: 12px; border: 1px solid var(--line); margin-bottom: 6px; }
+  .sg-type { display: grid; gap: 20px; }
+  .sg-type-row { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 16px; align-items: baseline; }
+  .sg-spacing { list-style: none; padding: 0; margin: 0 0 32px; display: grid; gap: 8px; }
+  .sg-spacing li { display: flex; align-items: center; gap: 12px; }
+  .sg-spacing li span:first-child { height: 16px; background: var(--teal-500); border-radius: 4px; }
+  .sg-boxes { list-style: none; padding: 0; margin: 0 0 32px; display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+  .sg-boxes li { display: grid; gap: 4px; }
+  .sg-box { height: 72px; background: var(--teal-100); margin-bottom: 6px; }
+  .sg-box-white { background: #fff; border-radius: 12px; }
+  .sg-btn-table { display: grid; grid-template-columns: repeat(4, max-content); gap: 16px 24px; align-items: center; margin-bottom: 32px; overflow-x: auto; }
+  .sg-on-teal { background: var(--teal-600); padding: 8px; border-radius: 12px; justify-self: start; }
+  .sg-swatches code, .sg-boxes code { justify-self: start; }
+  .container > h3:not(:first-child), .container > div > h3:not(:first-child) { margin-top: 32px; }
+  .sg-frame { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  kbd { font: inherit; font-size: 14px; padding: 1px 6px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--gray-100); }
+  @media (max-width: 640px) {
+    .sg-type-row { grid-template-columns: 1fr; gap: 4px; }
+    .sg-btn-table { grid-template-columns: max-content; }
+    .sg-btn-table > .small.muted { display: none; }
+  }
+</style>
