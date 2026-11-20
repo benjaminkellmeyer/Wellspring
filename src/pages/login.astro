@@ -86,45 +86,14 @@ import StaffLayout from '../layouts/StaffLayout.astro';
 
 <!-- is:inline keeps this a plain module script, so it can import /auth.js from the site root. -->
 <script type="module" is:inline>
-  import { supabase, api, signOut } from '/auth.js';
+  import { supabase, api, showStaffHeader, formProblems, showAlert } from '/auth.js';
   const $ = (id) => document.getElementById(id);
   const next = new URLSearchParams(location.search).get('next');
 
-  // kind: 'error' | 'success' | 'info'. Messages are set with textContent (no HTML injection).
-  function say(text, kind = 'error') {
-    const msg = $('msg');
-    msg.hidden = !text;
-    msg.className = text ? `alert alert-${kind}` : '';
-    msg.textContent = text || '';
-  }
-
-  function sayList(intro, items) {
-    const msg = $('msg');
-    msg.hidden = false;
-    msg.className = 'alert alert-error';
-    msg.textContent = '';
-    const strong = document.createElement('strong');
-    strong.textContent = intro;
-    const ul = document.createElement('ul');
-    ul.style.margin = '4px 0 0';
-    items.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ul.append(li); });
-    msg.append(strong, ul);
-  }
-
-  function initials(text) {
-    const words = String(text).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
-    return ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase() || '?';
-  }
-
-  // Fill the staff header's signed-in block, or hide it when signed out.
-  function showWho(me) {
-    $('who').hidden = !me;
-    if (!me) return;
-    const name = me.client?.c_name ?? me.email;
-    $('whoName').textContent = name;
-    $('whoInitials').textContent = initials(name);
-    $('whoRole').textContent = me.isStaff ? 'Staff' : 'Client';
-  }
+  // kind: 'error' | 'success' | 'info'
+  const say = (text, kind = 'error') => showAlert($('msg'), kind, text);
+  const sayList = (intro, items) => showAlert($('msg'), 'error', intro, items);
+  const showWho = showStaffHeader;
 
   async function render() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -157,12 +126,7 @@ import StaffLayout from '../layouts/StaffLayout.astro';
 
   // Mark empty or invalid required fields and list what to fix.
   function checkForm(form) {
-    const problems = [];
-    form.querySelectorAll('input, select').forEach((el) => {
-      const bad = !el.checkValidity();
-      el.setAttribute('aria-invalid', bad ? 'true' : 'false');
-      if (bad) problems.push(`${form.querySelector(`label[for="${el.id}"]`).textContent}: ${el.validationMessage}`);
-    });
+    const problems = formProblems(form);
     if (problems.length) sayList('Please fix the following:', problems);
     return !problems.length;
   }
@@ -198,6 +162,5 @@ import StaffLayout from '../layouts/StaffLayout.astro';
     render();
   };
 
-  $('signOut').onclick = signOut;
   render();
 </script>
