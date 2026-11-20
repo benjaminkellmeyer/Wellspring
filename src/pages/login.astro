@@ -1,0 +1,203 @@
+---
+// Sign-in page (built to /login.html). Staff and clients both sign in here.
+// New clients also create their client profile here before requesting events.
+import StaffLayout from '../layouts/StaffLayout.astro';
+---
+<StaffLayout title="Sign in">
+  <div class="narrow">
+    <h1 id="pageTitle">Sign in</h1>
+    <p class="muted" id="pageIntro">Sign in to request an event or check the status of your requests.</p>
+
+    <!-- Success and error messages. The script sets the alert class. -->
+    <div id="msg" role="status" aria-live="polite" hidden></div>
+
+    <!-- Signed out -->
+    <section class="panel" id="signInBox" hidden aria-label="Sign in">
+      <form id="signInForm" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" minlength="6" required aria-describedby="passwordHelp" />
+          <span class="field-help" id="passwordHelp">At least 6 characters.</span>
+        </div>
+        <div class="button-row">
+          <button type="submit" class="btn btn-primary">Sign in</button>
+          <button type="button" class="btn btn-secondary" id="signUp">Create account</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Signed in -->
+    <section id="signedInBox" hidden>
+      <!-- Clients without a profile must create one before requesting events -->
+      <form class="panel" id="profileForm" hidden novalidate>
+        <h2>Your client details</h2>
+        <p class="muted">We need these before you can request an event.</p>
+        <div class="field">
+          <label for="c_name">Name or organization</label>
+          <input id="c_name" maxlength="50" required autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="c_type">Client type</label>
+          <select id="c_type" required>
+            <option value="">Select a type</option>
+            <option value="individual">Individual</option>
+            <option value="commercial">Commercial</option>
+            <option value="non_profit">Non-profit</option>
+            <option value="tenant">Tenant</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="c_email">Contact email</label>
+          <input id="c_email" type="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="c_phone">Phone</label>
+          <input id="c_phone" inputmode="numeric" required autocomplete="tel" aria-describedby="phoneHelp" />
+          <span class="field-help" id="phoneHelp">Digits only, 7 to 15 numbers.</span>
+        </div>
+        <button type="submit" class="btn btn-primary">Save details</button>
+      </form>
+
+      <nav id="links" aria-label="Next steps" class="links">
+        <a class="task-card" href="/index.html">
+          <span class="task-title">View event requests →</span>
+          <p id="viewHint">See your requests and their status.</p>
+        </a>
+        <a class="task-card" href="/eventForm.html" id="requestLink">
+          <span class="task-title">Request an event →</span>
+          <p>Choose a date, room and setup for your event.</p>
+        </a>
+      </nav>
+    </section>
+  </div>
+</StaffLayout>
+
+<style>
+  .narrow h1 { margin-bottom: 8px; }
+  .narrow > .muted { margin-bottom: 24px; }
+  .panel h2 { margin-bottom: 4px; }
+  .links { display: grid; gap: 16px; }
+</style>
+
+<!-- is:inline keeps this a plain module script, so it can import /auth.js from the site root. -->
+<script type="module" is:inline>
+  import { supabase, api, signOut } from '/auth.js';
+  const $ = (id) => document.getElementById(id);
+  const next = new URLSearchParams(location.search).get('next');
+
+  // kind: 'error' | 'success' | 'info'. Messages are set with textContent (no HTML injection).
+  function say(text, kind = 'error') {
+    const msg = $('msg');
+    msg.hidden = !text;
+    msg.className = text ? `alert alert-${kind}` : '';
+    msg.textContent = text || '';
+  }
+
+  function sayList(intro, items) {
+    const msg = $('msg');
+    msg.hidden = false;
+    msg.className = 'alert alert-error';
+    msg.textContent = '';
+    const strong = document.createElement('strong');
+    strong.textContent = intro;
+    const ul = document.createElement('ul');
+    ul.style.margin = '4px 0 0';
+    items.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ul.append(li); });
+    msg.append(strong, ul);
+  }
+
+  function initials(text) {
+    const words = String(text).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+    return ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase() || '?';
+  }
+
+  // Fill the staff header's signed-in block, or hide it when signed out.
+  function showWho(me) {
+    $('who').hidden = !me;
+    if (!me) return;
+    const name = me.client?.c_name ?? me.email;
+    $('whoName').textContent = name;
+    $('whoInitials').textContent = initials(name);
+    $('whoRole').textContent = me.isStaff ? 'Staff' : 'Client';
+  }
+
+  async function render() {
+    const { data: { session } } = await supabase.auth.getSession();
+    $('signInBox').hidden = !!session;
+    $('signedInBox').hidden = !session;
+    if (!session) {
+      showWho(null);
+      $('pageTitle').textContent = 'Sign in';
+      $('pageIntro').textContent = 'Sign in to request an event or check the status of your requests.';
+      return;
+    }
+
+    const { ok, data: me } = await api('GET', '/api/me');
+    if (!ok) return say(me.error);
+    showWho(me);
+
+    const needsProfile = !me.isStaff && !me.client;
+    $('profileForm').hidden = !needsProfile;
+    $('links').hidden = needsProfile;
+    $('requestLink').hidden = me.isStaff;
+    $('viewHint').textContent = me.isStaff
+      ? 'Review every request, update status and filter the list.'
+      : 'See your requests and their status.';
+    $('pageTitle').textContent = needsProfile ? 'Almost done' : `Welcome${me.client ? ', ' + me.client.c_name : ''}`;
+    $('pageIntro').textContent = `Signed in as ${me.email} (${me.isStaff ? 'staff' : 'client'}).`;
+
+    if (needsProfile) $('c_email').value = me.email;
+    else if (next) location.href = next;
+  }
+
+  // Mark empty or invalid required fields and list what to fix.
+  function checkForm(form) {
+    const problems = [];
+    form.querySelectorAll('input, select').forEach((el) => {
+      const bad = !el.checkValidity();
+      el.setAttribute('aria-invalid', bad ? 'true' : 'false');
+      if (bad) problems.push(`${form.querySelector(`label[for="${el.id}"]`).textContent}: ${el.validationMessage}`);
+    });
+    if (problems.length) sayList('Please fix the following:', problems);
+    return !problems.length;
+  }
+
+  $('signInForm').onsubmit = async (e) => {
+    e.preventDefault();
+    if (!checkForm(e.target)) return;
+    say('Signing in…', 'info');
+    const { error } = await supabase.auth.signInWithPassword({ email: $('email').value, password: $('password').value });
+    if (error) return say(error.message);
+    say('');
+    render();
+  };
+
+  $('signUp').onclick = async () => {
+    if (!checkForm($('signInForm'))) return;
+    const { data, error } = await supabase.auth.signUp({ email: $('email').value, password: $('password').value });
+    if (error) return say(error.message);
+    if (!data.session) return say('Account created. Check your email to confirm it, then sign in.', 'success');
+    say('Account created.', 'success');
+    render();
+  };
+
+  $('profileForm').onsubmit = async (e) => {
+    e.preventDefault();
+    if (!checkForm(e.target)) return;
+    const { ok, data } = await api('POST', '/api/me/client', {
+      c_name: $('c_name').value, c_type: $('c_type').value,
+      c_email: $('c_email').value, c_phone: $('c_phone').value,
+    });
+    if (!ok) return sayList('Please fix the following:', data.errors ?? [data.error]);
+    say(`Saved. Client #${data.c_id}: ${data.c_name}.`, 'success');
+    render();
+  };
+
+  $('signOut').onclick = signOut;
+  render();
+</script>
