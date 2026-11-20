@@ -228,21 +228,22 @@ checkEnd(); // re-run your existing end-time check
         notes: data.get('notes'),
       });
 
-      submitting = false;
-      form.querySelector('button[type="submit"]').disabled = false;
-
-      if (!ok) return showErrors(reply.errors ?? [reply.error]);
-
-      result.innerHTML = '';
-      const p = document.createElement('p');
-      p.className = 'ok';
-      p.textContent = `Request #${reply.e_id} "${reply.e_name}" was saved. Status: Submitted.`;
-      const link = document.createElement('a');
-      link.href = '/index.html';
-      link.textContent = 'View my requests';
-      result.append(p, link);
-      form.reset();
-      result.scrollIntoView({ behavior: 'smooth' });
+if (!ok) {
+        submitting = false;
+        form.querySelector('button[type="submit"]').disabled = false;
+        return showErrors(reply.errors ?? [reply.error]);
+      }
+ 
+      // Save the success message for the next page, then go to the requests screen
+      try {
+        sessionStorage.setItem('flash', JSON.stringify({
+          type: 'ok',
+          id: reply.e_id,
+          text: `Request #${reply.e_id} "${reply.e_name}" was saved. Status: Submitted.`,
+        }));
+      } catch (e) { /* storage unavailable: the redirect still works, just without the message */ }
+ 
+      window.location.assign('/index.html');
     });
   </script>
 

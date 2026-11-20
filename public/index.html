@@ -163,7 +163,8 @@
        The role comes from the server (user_roles table), and the server only returns the rows this user may see. -->
   <p><span id="roleBanner">Checking sign-in…</span> <button type="button" id="signOut">Sign out</button></p>
   <p id="roleMsg" role="status"></p>
-  <p id="dbmsg" role="status"></p>
+<div id="flash" role="status" aria-live="polite"></div>
+<p id="dbmsg" role="status"></p>
  
   <!-- ADDED: wrapper (closed just before the <script> tag). Hidden until a user is selected. -->
   <main id="app" hidden>
@@ -499,15 +500,37 @@ async function load(){
   </script>
 
   <!-- ADDED (Assignment 7): sign-in check. Sends signed-out visitors to the sign-in page. -->
-  <script type="module">
+<script type="module">
     import { requireSignIn, signOut } from '/auth.js';
     document.getElementById('signOut').onclick = signOut;
     const me = await requireSignIn();
     if (!me.isStaff && !me.client) location.href = '/login.html'; // new client: create profile first
     const label = me.email + (me.isStaff ? ' (staff)' : ' (client: ' + me.client.c_name + ')');
     applyRole(me.isStaff ? 'coordinator' : 'client', label);
+ 
+    // Read the one-time success message left by eventForm.html
+    let flash = null;
+    try {
+      flash = JSON.parse(sessionStorage.getItem('flash'));
+      sessionStorage.removeItem('flash'); // show once only, so a refresh won't repeat it
+    } catch (e) {}
+ 
+    if (flash) {
+      const p = document.createElement('p');
+      p.textContent = flash.text;          // textContent keeps the user-typed title from being treated as HTML
+      p.style.color = '#1b5e20';
+      p.style.fontWeight = 'bold';
+      document.getElementById('flash').append(p);
+      if (flash.id) { openRows[flash.id] = true; selId = flash.id; } // open the new request's details row
+    }
+ 
     await load();
-  </script>
+ 
+    if (flash && flash.id) {
+      const row = document.querySelector('tr.row[data-id="' + flash.id + '"]');
+      if (row) row.scrollIntoView({ block: 'center' });
+    }
+</script>
 </body>
  
 </html>
