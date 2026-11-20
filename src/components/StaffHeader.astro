@@ -1,0 +1,18 @@
+---
+// Staff portal header. Pass the signed-in person's name, initials, and role.
+// The sign-out button has id="signOut" so a page script can attach the sign-out action.
+import BrandMark from './BrandMark.astro';
+interface Props { name?: string; initials?: string; role?: string }
+const { name = 'Staff member', initials = 'SM', role = 'Staff' } = Astro.props;
+---
+<header class="staff-header">
+  <div class="staff-wrap staff-header-inner">
+    <BrandMark href="/index.html" />
+    <div class="who">
+      <span class="avatar" aria-hidden="true">{initials}</span>
+      <span class="who-name">{name}</span>
+      <span class="role-tag">{role}</span>
+      <button type="button" class="btn btn-secondary btn-sm" id="signOut">Sign out</button>
+    </div>
+  </div>
+</header>

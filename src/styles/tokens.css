@@ -1,0 +1,29 @@
+/* Wellspring on Main design tokens.
+   Source of truth shared with the public-site team. Copy names and values exactly;
+   do not add colors here without agreeing it with them. */
+:root {
+  /* Text */
+  --ink: #151b1c;      /* headings, body text, footer background */
+  --ink-2: #374144;    /* secondary text, nav links */
+  --ink-3: #4e595c;    /* lead paragraphs, captions, help text */
+  /* Lines */
+  --line: #e3e7e8;     /* card and section borders */
+  --line-2: #cbd2d4;   /* input borders, secondary button border */
+  /* Brand teal (primary) */
+  --teal-900: #0e363c; /* utility bar, staff header, h1 color */
+  --teal-700: #145660; /* primary hover, tag text */
+  --teal-600: #176a75; /* primary button, links, brand mark, eyebrow */
+  --teal-500: #1f828e; /* focus ring, active nav underline */
+  --teal-300: #72bdc5; /* dashed placeholder borders */
+  --teal-200: #a8d8dd;
+  --teal-100: #d3ecee; /* image placeholders, input focus halo */
+  --teal-50:  #eef7f8; /* hero and band backgrounds, icon tiles, chips */
+  /* Accent coral (calls to action, warnings) */
+  --coral-700: #b8462a; /* error text, tag text on coral-100 */
+  --coral-500: #f2734a; /* "Check availability" button, ALWAYS with --ink text, never white */
+  --coral-300: #f7a585; /* coral button hover, avatar */
+  --coral-100: #fde4da; /* CTA panel, pending badges, error alerts */
+  /* Neutral backgrounds */
+  --gray-50:  #f8fafa;  /* gray bands, staff page background */
+  --gray-100: #f1f3f4;  /* table headers, inline code, neutral badges */
+}

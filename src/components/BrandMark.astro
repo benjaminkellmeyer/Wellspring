@@ -1,0 +1,14 @@
+---
+// Brand mark: teal circle with a white water drop, the name, and the tagline.
+interface Props { href?: string }
+const { href = '/' } = Astro.props;
+---
+<a class="brand" href={href}>
+  <span class="brand-mark" aria-hidden="true">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 5 6.5 5 9.5a5 5 0 0 1-10 0C7 9.5 9 7 12 3z"/></svg>
+  </span>
+  <span class="brand-text">
+    <span class="brand-name">Wellspring on Main</span>
+    <span class="brand-tagline">Arlington's Center for Community Engagement</span>
+  </span>
+</a>
