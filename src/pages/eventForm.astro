@@ -1,0 +1,254 @@
+---
+// Event request form (built to /eventForm.html). Signed-in clients submit requests here.
+// The client is NOT chosen on this form: the server uses the signed-in user's own client record.
+import StaffLayout from '../layouts/StaffLayout.astro';
+
+const categories = [['public', 'Public'], ['private', 'Private'], ['tenant', 'Tenant']];
+const types = [['wedding', 'Wedding'], ['birthday_party', 'Birthday party'], ['corporate', 'Corporate'], ['community', 'Community'], ['non-profit', 'Non-profit'], ['other', 'Other']];
+const furniture = [['tables', 'Tables'], ['chairs', 'Chairs'], ['podium', 'Podium'], ['stage', 'Stage'], ['linens', 'Linens']];
+const tech = [['projector', 'Projector'], ['microphone', 'Microphone'], ['speakers', 'Speakers'], ['wifi', 'Wi-Fi'], ['screen', 'Screen']];
+---
+<StaffLayout title="Request an event">
+  <p class="small"><a class="text-link" href="/index.html">← My event requests</a></p>
+  <h1>Request an event</h1>
+  <p class="muted" id="intro">Checking sign-in…</p>
+
+  <!-- Success and error messages from the server appear here -->
+  <div id="result" role="status" aria-live="polite" hidden></div>
+
+  <form id="event-form" class="panel" hidden novalidate>
+    <p class="small muted">All fields are required unless marked optional.</p>
+
+    <fieldset>
+      <legend>Event details</legend>
+      <div class="form-grid">
+        <div class="field wide">
+          <label for="name">Event name</label>
+          <input type="text" id="name" name="name" maxlength="200" required aria-describedby="nameHelp" />
+          <span class="field-help" id="nameHelp">Up to 200 characters.</span>
+        </div>
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category" name="category" required>
+            <option value="">Select a category</option>
+            {categories.map(([v, t]) => <option value={v}>{t}</option>)}
+          </select>
+        </div>
+        <div class="field">
+          <label for="type">Type</label>
+          <select id="type" name="type" required>
+            <option value="">Select a type</option>
+            {types.map(([v, t]) => <option value={v}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Date and time</legend>
+      <div class="form-grid">
+        <div class="field">
+          <label for="start">Start</label>
+          <input type="datetime-local" id="start" name="start" required />
+        </div>
+        <div class="field">
+          <label for="end">End</label>
+          <input type="datetime-local" id="end" name="end" required aria-describedby="endHelp" />
+          <span class="field-help" id="endHelp">30 minutes to 8 hours after the start.</span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Room and attendance</legend>
+      <div class="form-grid">
+        <div class="field">
+          <label for="room">Room</label>
+          <!-- Options are loaded from the room table when the page opens -->
+          <select id="room" name="room" required aria-describedby="roomHelp">
+            <option value="">Select a room</option>
+          </select>
+          <span class="field-help" id="roomHelp">Unavailable rooms can't be selected.</span>
+        </div>
+        <div class="field">
+          <label for="attendance">Estimated attendance</label>
+          <input type="number" id="attendance" name="attendance" min="2" max="350" step="1" required inputmode="numeric" aria-describedby="attHelp" />
+          <span class="field-help" id="attHelp">Between 2 and 350 people, and no more than the room holds.</span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Setup <span class="optional">(optional)</span></legend>
+      <div class="form-grid">
+        <div class="field">
+          <span class="field-label" id="furnitureLabel">Furniture</span>
+          <div class="checks" role="group" aria-labelledby="furnitureLabel">
+            {furniture.map(([v, t]) => <label class="check"><input type="checkbox" name="furniture[]" value={v} /> {t}</label>)}
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label" id="techLabel">Tech</span>
+          <div class="checks" role="group" aria-labelledby="techLabel">
+            {tech.map(([v, t]) => <label class="check"><input type="checkbox" name="tech[]" value={v} /> {t}</label>)}
+          </div>
+        </div>
+        <div class="field wide">
+          <label for="catering">Catering notes <span class="optional">(optional)</span></label>
+          <textarea id="catering" name="catering" rows="2" maxlength="200" aria-describedby="cateringHelp"></textarea>
+          <span class="field-help" id="cateringHelp">Up to 200 characters.</span>
+        </div>
+        <div class="field wide">
+          <label for="notes">Other notes <span class="optional">(optional)</span></label>
+          <textarea id="notes" name="notes" rows="4" maxlength="2000" aria-describedby="notesHelp"></textarea>
+          <span class="field-help" id="notesHelp">Anything not listed above. Up to 2000 characters.</span>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="submit" class="btn btn-primary">Submit request</button>
+      <a class="btn btn-secondary" href="/index.html">Cancel</a>
+    </div>
+  </form>
+</StaffLayout>
+
+<style>
+  h1 { margin-bottom: 8px; }
+  #intro { margin-bottom: 24px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
+  fieldset + fieldset { border-top: 1px solid var(--line); padding-top: 24px; }
+  /* float + width keeps the legend inside the fieldset, so the divider sits above it, not through it */
+  legend { float: left; width: 100%; padding: 0; margin-bottom: 16px; font-size: 18px; line-height: 26px; font-weight: 600; color: var(--ink); }
+  .form-grid { clear: both; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; align-items: start; }
+  .form-grid .wide { grid-column: 1 / -1; }
+  .field-label { font-size: 15px; line-height: 22px; font-weight: 600; }
+  .optional { font-weight: 400; color: var(--ink-3); }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 20px; padding-top: 4px; }
+  .check { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; line-height: 24px; font-weight: 400; cursor: pointer; }
+  .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal-600); }
+  .check input:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--teal-500); }
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<!-- End-time window check and date prefill (HTML alone can't compare two fields).
+     The server checks the same rules. -->
+<script is:inline>
+  var startInput = document.getElementById('start');
+  var endInput = document.getElementById('end');
+
+  function checkEnd() {
+    endInput.setCustomValidity('');
+    if (!startInput.value || !endInput.value) return;
+    var diffMinutes = (new Date(endInput.value) - new Date(startInput.value)) / 60000;
+    if (diffMinutes < 30 || diffMinutes > 480) {
+      endInput.setCustomValidity('End time must be between 30 minutes and 8 hours after the start time.');
+    }
+  }
+
+  // Pre-fill start and end with today's date at 0:00, and don't allow anything earlier than that
+  var now = new Date();
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+  startInput.min = today + 'T00:00';
+  endInput.min = today + 'T00:00';
+  startInput.value = today + 'T00:00';
+  endInput.value = today + 'T00:00';
+  checkEnd();
+
+  startInput.addEventListener('input', checkEnd);
+  endInput.addEventListener('input', checkEnd);
+</script>
+
+<!-- Sign-in check, room list, and submission to the server.
+     is:inline keeps it an unbundled module so it can import /auth.js. -->
+<script type="module" is:inline>
+  import { api, requireSignIn, showStaffHeader, formProblems, showAlert } from '/auth.js';
+  const $ = (id) => document.getElementById(id);
+  const form = $('event-form');
+  const result = $('result');
+
+  function showErrors(messages) {
+    showAlert(result, 'error', 'Please fix the following:', messages);
+    result.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  const me = await requireSignIn();
+  showStaffHeader(me);
+  if (me.isStaff) {
+    $('intro').textContent = `Signed in as ${me.email} (staff).`;
+    showAlert(result, 'info', 'Event requests are submitted by clients. Staff review them from the requests list.');
+  } else if (!me.client) {
+    $('intro').textContent = `Signed in as ${me.email}.`;
+    showAlert(result, 'info', 'You need a client profile before requesting an event.');
+    const link = document.createElement('a');
+    link.href = '/login.html';
+    link.className = 'text-link';
+    link.textContent = ' Create it here →';
+    result.append(link);
+  } else {
+    $('intro').textContent = `Requesting as ${me.client.c_name} (${me.email}).`;
+    form.hidden = false;
+  }
+
+  // Rooms come from the database so ids and availability are always current
+  const rooms = await api('GET', '/api/rooms');
+  if (rooms.ok) {
+    for (const r of rooms.data) {
+      const opt = new Option(
+        r.r_status === 'Available' ? `${r.r_name} (up to ${r.r_capacity})` : `${r.r_name} (${r.r_status})`, r.r_id);
+      opt.disabled = r.r_status !== 'Available';
+      $('room').append(opt);
+    }
+  }
+
+  let submitting = false;
+  const submitButton = form.querySelector('button[type="submit"]');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (submitting) return;
+
+    // Browser checks first (required fields, ranges, end-time window), so users see every problem at once
+    const problems = formProblems(form);
+    if (problems.length) return showErrors(problems);
+
+    submitting = true;
+    submitButton.disabled = true;
+
+    const data = new FormData(form);
+    // Convert datetime-local (no time zone) to a full timestamp in the user's time zone
+    const toIso = (v) => (v ? new Date(v).toISOString() : '');
+    const { ok, data: reply } = await api('POST', '/api/events', {
+      category: data.get('category'),
+      type: data.get('type'),
+      name: data.get('name'),
+      start: toIso(data.get('start')),
+      end: toIso(data.get('end')),
+      attendance: data.get('attendance'),
+      room: data.get('room'),
+      furniture: data.getAll('furniture[]'),
+      tech: data.getAll('tech[]'),
+      catering: data.get('catering'),
+      notes: data.get('notes'),
+    });
+
+    if (!ok) {
+      submitting = false;
+      submitButton.disabled = false;
+      return showErrors(reply.errors ?? [reply.error]);
+    }
+
+    // Save the success message for the next page, then go to the requests screen
+    try {
+      sessionStorage.setItem('flash', JSON.stringify({
+        type: 'ok',
+        id: reply.e_id,
+        text: `Request #${reply.e_id} "${reply.e_name}" was saved. Status: Submitted.`,
+      }));
+    } catch (e) { /* storage unavailable: the redirect still works, just without the message */ }
+
+    window.location.assign('/index.html');
+  });
+</script>

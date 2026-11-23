@@ -1,0 +1,13 @@
+---
+// Inner-page hero: eyebrow, h1, lead, and optional actions (pass buttons in the "actions" slot).
+interface Props { eyebrow?: string; title: string; lead?: string }
+const { eyebrow, title, lead } = Astro.props;
+---
+<section class="page-hero">
+  <div class="container">
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    <h1>{title}</h1>
+    {lead && <p class="lead">{lead}</p>}
+    {Astro.slots.has('actions') && <div class="actions"><slot name="actions" /></div>}
+  </div>
+</section>

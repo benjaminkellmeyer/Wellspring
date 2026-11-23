@@ -1,0 +1,26 @@
+---
+// Public header. Pass current="Events" (a nav label) to mark the current page.
+// Nav labels and links are placeholders: match them to the public-site team's navigation.
+import BrandMark from './BrandMark.astro';
+interface Props { current?: string }
+const { current } = Astro.props;
+const links = [
+  { label: 'Spaces', href: '/spaces' },
+  { label: 'Events', href: '/events' },
+  { label: 'Get involved', href: '/get-involved' },
+  { label: 'About', href: '/about' },
+];
+---
+<header class="site-header">
+  <div class="site-header-inner">
+    <BrandMark />
+    <nav class="main-nav" aria-label="Main">
+      <ul>
+        {links.map((l) => (
+          <li><a href={l.href} aria-current={l.label === current ? 'page' : undefined}>{l.label}</a></li>
+        ))}
+        <li><a class="btn btn-primary" href="/eventForm.html">Book a space</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
