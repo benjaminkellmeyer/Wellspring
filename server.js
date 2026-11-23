@@ -18,7 +18,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
 
 const app = express();
 app.use(express.json());
-app.use(express.static('public'));
+// Serve the site Astro built (npm run build). Pages live in src/pages; files in public/ are copied as is.
+app.use(express.static('dist'));
 
 // ---------------------------------------------------------------------------
 // Allowed values (must match the database CHECK constraints)

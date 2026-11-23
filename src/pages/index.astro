@@ -1,0 +1,762 @@
+---
+// Event requests dashboard (built to /index.html).
+// Clients see their own requests; staff see all requests and can update status, priority,
+// coordinator and room, and archive. The SERVER enforces this; data-role only hides controls.
+// The script below is the team's existing dashboard logic, restyled with the design system.
+import StaffLayout from '../layouts/StaffLayout.astro';
+---
+<StaffLayout title="Event requests">
+  <h1>Event requests</h1>
+  <p class="muted" id="roleBanner">Checking sign-in…</p>
+
+  <!-- One-time confirmation after submitting a request (set by eventForm) -->
+  <div id="flash" role="status" aria-live="polite" hidden></div>
+  <!-- Page messages: archive results, permission notes -->
+  <div id="roleMsg" role="status" aria-live="polite" hidden></div>
+
+  <!-- Hidden until sign-in finishes -->
+  <div id="app" hidden>
+    <div class="button-row page-actions">
+      <!-- data-role="client": event requests are submitted by clients -->
+      <button id="bCreate" type="button" class="btn btn-primary" data-role="client" onclick="window.location.href='eventForm.html';">Create</button>
+      <button id="bRead" type="button" class="btn btn-secondary" aria-pressed="false">Read</button>
+      <!-- data-role="coordinator": only staff can update (the server also rejects others with 403) -->
+      <button id="bUpdate" type="button" class="btn btn-secondary" data-role="coordinator" aria-pressed="false">Update</button>
+    </div>
+
+    <!-- Update panel (staff) -->
+    <section class="panel edit" id="edit" hidden aria-labelledby="editTitle">
+      <h2 id="editTitle">Update a request</h2>
+      <p class="small muted">Staff can change status, priority, coordinator, and room. Other details are read-only.</p>
+      <div class="dash-grid">
+        <div class="field wide"><label for="eid">Request to update</label><select id="eid"></select></div>
+        <div class="field"><label for="f_st">Status</label><select id="f_st"></select></div>
+        <div class="field"><label for="f_pri">Priority</label><select id="f_pri"></select></div>
+        <div class="field"><label for="f_co">Coordinator</label><select id="f_co"></select></div>
+        <div class="field"><label for="f_r">Room</label><select id="f_r"></select></div>
+        <div class="field"><label for="f_name">Name</label><input id="f_name" maxlength="200" disabled /></div>
+        <div class="field"><label for="f_cat">Category</label><select id="f_cat" disabled></select></div>
+        <div class="field"><label for="f_type">Type</label><input id="f_type" disabled /></div>
+        <div class="field"><label for="f_c">Client</label><select id="f_c" disabled></select></div>
+        <div class="field"><label for="f_s">Start</label><input id="f_s" type="datetime-local" disabled /></div>
+        <div class="field"><label for="f_e">End</label><input id="f_e" type="datetime-local" disabled /></div>
+        <div class="field"><label for="f_att">Attendance</label><input id="f_att" type="number" min="2" max="350" disabled /></div>
+        <div class="field"><label for="f_fur">Furniture</label><input id="f_fur" disabled /></div>
+        <div class="field"><label for="f_tech">Technology</label><input id="f_tech" disabled /></div>
+        <div class="field"><label for="f_cater">Catering</label><input id="f_cater" maxlength="200" disabled /></div>
+        <div class="field wide"><label for="f_notes">Notes</label><textarea id="f_notes" rows="3" maxlength="2000" disabled></textarea></div>
+      </div>
+      <div class="button-row">
+        <button id="bSave" type="button" class="btn btn-primary">Save changes</button>
+        <button id="bCancel" type="button" class="btn btn-secondary">Cancel</button>
+        <span id="msg" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <!-- Filters: hidden until Read; the filter fields open with Show filters -->
+    <div class="filters" hidden>
+      <div class="button-row">
+        <button id="showFil" type="button" class="btn btn-secondary btn-sm" aria-pressed="false" aria-controls="fgrid">Show filters</button>
+        <button id="reset" type="button" class="btn btn-secondary btn-sm">Reset filters</button>
+      </div>
+      <div class="toolbar fgrid" id="fgrid" hidden>
+        <!-- data-role="coordinator": clients don't get a list of other clients' names -->
+        <div class="field" data-role="coordinator"><label for="fc">Client</label><select id="fc"></select></div>
+        <div class="field"><label for="co">Coordinator</label><select id="co"></select></div>
+        <div class="field"><label for="type">Type</label><select id="type"></select></div>
+        <div class="field"><label for="cat">Category</label><select id="cat"></select></div>
+        <div class="field"><label for="room">Room</label><select id="room"></select></div>
+        <div class="field"><label for="amin">Min attendance</label><input id="amin" type="number" min="2" max="350" /></div>
+        <div class="field"><label for="d1">Starts on/after</label><input id="d1" type="date" /></div>
+        <div class="field"><label for="d2">Starts on/before</label><input id="d2" type="date" /></div>
+        <div class="field"><label for="pri">Priority</label><select id="pri"></select></div>
+        <div class="field"><label for="st">Status</label><select id="st"></select></div>
+        <div class="field"><label for="sort">Sort by</label><select id="sort"></select></div>
+        <label class="check"><input id="arc" type="checkbox" /> Show archived</label>
+      </div>
+    </div>
+
+    <!-- ADDED: quick lookup and quick filters. They narrow the requests already loaded (no database call). -->
+    <div class="quickbar">
+      <div class="search-bar">
+        <label for="q" class="visually-hidden">Search requests</label>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search by event, client, room or ID" autocomplete="off" aria-describedby="qHint" />
+        <kbd id="qHint" title="Press / to search">/</kbd>
+      </div>
+      <div class="qf-row">
+        <span class="qf-label" id="qfPriLabel">Priority</span>
+        <div class="qf-chips" id="qfPri" role="group" aria-labelledby="qfPriLabel"></div>
+      </div>
+      <div class="qf-row">
+        <span class="qf-label" id="qfStLabel">Status</span>
+        <div class="qf-chips" id="qfSt" role="group" aria-labelledby="qfStLabel"></div>
+      </div>
+      <button type="button" class="qf-clear" id="qfClear" hidden>Clear quick filters</button>
+    </div>
+
+    <div class="table-head">
+      <div>
+        <p class="sort-note" id="sortNote" aria-live="polite"></p>
+        <p class="small muted"><span id="count"></span> · <span id="viewHint"></span></p>
+      </div>
+      <div class="button-row view-toggle" role="group" aria-label="View">
+        <button id="vTable" type="button" class="btn btn-secondary btn-sm" aria-pressed="true">Table</button>
+        <button id="vCards" type="button" class="btn btn-secondary btn-sm" aria-pressed="false">Cards</button>
+        <button id="colReset" type="button" class="btn btn-secondary btn-sm" title="Restore the default column order and widths">Reset columns</button>
+      </div>
+    </div>
+    <p id="dbmsg" class="muted" role="status"></p>
+    <div class="data-table" id="tblwrap">
+      <table>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <!-- Card view: same rows, filters and sort as the table -->
+    <div class="card-grid" id="cards" hidden></div>
+  </div>
+</StaffLayout>
+
+<!-- is:global because the table rows are created by the script, so Astro's scoped styles can't reach them.
+     Every rule is limited to this page's #app, #flash or #roleMsg. -->
+<style is:global>
+  /* Fluid width on this page: up to 85% of the window, never narrower than the standard 1040px.
+     The header uses .staff-wrap too, so it stays aligned with the content. */
+  body.staff .staff-wrap { max-width: max(1040px, 85vw); }
+  #roleBanner { margin-bottom: 24px; }
+  #app .page-actions { margin-bottom: 24px; }
+  #app .btn-secondary[aria-pressed="true"] { background: var(--teal-50); border-color: var(--teal-500); color: var(--teal-700); }
+  #app .edit { margin-bottom: 24px; }
+  #app .edit h2 { margin-bottom: 4px; }
+  #app .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 0 16px; align-items: start; margin-top: 16px; }
+  #app .dash-grid .wide { grid-column: 1 / -1; }
+  /* Date-time inputs have a built-in minimum width that overflows narrow grid columns. */
+  #app .dash-grid input, #app .fgrid input { min-width: 0; }
+  #app .field input:disabled, #app .field select:disabled, #app .field textarea:disabled { background: var(--gray-50); color: var(--ink-2); }
+  #msg { font-size: 14px; line-height: 20px; font-weight: 500; }
+  #msg.msg-ok { color: var(--teal-700); font-weight: 600; }
+  #msg.msg-err { color: var(--coral-700); }
+  #msg.msg-info { color: var(--ink-3); }
+  #app .filters { margin-bottom: 16px; }
+  #app .filters .button-row + .fgrid { margin-top: 12px; }
+  #app .fgrid .field { flex: 1 1 170px; }
+  #app .check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px; cursor: pointer; }
+  #app .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal-600); }
+  #app .check input:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--teal-500); }
+  #app .table-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin-bottom: 8px; }
+  #app #dbmsg:empty { display: none; }
+  #app .data-table table { min-width: 760px; }
+  #app .data-table th { cursor: pointer; user-select: none; }
+  #app .data-table th[data-k="act"] { cursor: default; }
+  /* Sorted column: teal text and the same underline as the active nav link */
+  #app .data-table th.on { color: var(--teal-700); box-shadow: inset 0 -2px 0 var(--teal-500); }
+  #app .data-table th .ar { font-size: 10px; }
+  /* Text cells wrap; badges, priority and the date line stay whole. */
+  #app .data-table th, #app .data-table td { padding-left: 10px; padding-right: 10px; }
+  #app .data-table tr.row td { vertical-align: middle; padding-top: 14px; padding-bottom: 14px; }
+  /* Hierarchy: the event name leads; supporting columns step back */
+  #app .data-table td[data-k="name"] { font-size: 17px; line-height: 24px; font-weight: 600; color: var(--ink); }
+  #app .data-table td[data-k="c"], #app .data-table td[data-k="r"], #app .data-table td[data-k="co"], #app .data-table td[data-k="type"] { font-size: 15px; line-height: 22px; color: var(--ink-2); }
+  #app .data-table tr.arch td[data-k="name"] { color: var(--ink-3); }
+  /* Urgent: the whole priority cell is filled. --ink on --coral-500 = 6.08:1 (the spec's coral pairing). */
+  #app .data-table tr.row td.prio-cell-urgent, #app .data-table tr.row:hover td.prio-cell-urgent, #app .data-table tr.row.sel td.prio-cell-urgent { background: var(--coral-500); }
+  #app td.prio-cell-urgent .prio, #app .prio-pill-urgent .prio { color: var(--ink); font-weight: 700; }
+  #app td.prio-cell-urgent .prio::before, #app .prio-pill-urgent .prio::before { background: var(--ink); }
+  #app .prio-pill-urgent { display: inline-flex; padding: 2px 10px; border-radius: 9999px; background: var(--coral-500); }
+
+  /* Column resize and drag-to-reorder */
+  #app .data-table th { position: relative; overflow: hidden; text-overflow: ellipsis; }
+  #app .data-table th:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--teal-500); }
+  #app .col-resize { position: absolute; top: 0; right: 0; width: 10px; height: 100%; cursor: col-resize; touch-action: none; }
+  #app .col-resize::after { content: ""; position: absolute; top: 25%; right: 4px; width: 2px; height: 50%; border-radius: 2px; background: var(--line-2); }
+  #app .col-resize:hover::after, #app .col-resize:focus-visible::after { background: var(--teal-500); }
+  #app .col-resize:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--teal-500); }
+  #app th.dragging { opacity: 0.5; }
+  #app th.drop-before { box-shadow: inset 3px 0 0 var(--teal-500); }
+  #app th.drop-after { box-shadow: inset -3px 0 0 var(--teal-500); }
+  #app .data-table td { overflow-wrap: break-word; } /* wrap between words; break a word only if it can't fit at all */
+  body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none; }
+  #app .data-table tr.row { cursor: pointer; }
+  #app .data-table tr.row.sel td { background: var(--teal-50); }
+  #app .data-table tr.arch td { color: var(--ink-3); }
+  #app .data-table tr.det td { background: var(--gray-50); }
+  #app .data-table tr.det:hover td { background: var(--gray-50); }
+  /* sticky + max-width keep a row's details inside the visible part of the scrolling table */
+  #app .dg { position: sticky; left: 12px; max-width: min(940px, calc(100vw - 80px)); display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 24px; padding: 4px 0; }
+  #app .dg small { display: block; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--ink-3); }
+  #app .empty { text-align: center; color: var(--ink-3); padding: 32px 16px; }
+  #app .data-table td[data-k="s"], #app .data-table td[data-k="pri"] { white-space: nowrap; }
+  #app .archived-on { display: block; margin-top: 4px; }
+
+  /* Search bar and quick filters */
+  #app .quickbar { margin: 8px 0 20px; }
+  #app .search-bar { display: flex; align-items: center; gap: 10px; padding: 0 14px; margin-bottom: 14px; background: #fff; border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink-3); }
+  #app .search-bar:focus-within { border-color: var(--teal-500); box-shadow: 0 0 0 3px var(--teal-100); }
+  #app .search-bar input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; font: inherit; font-size: 17px; color: var(--ink); outline: none; }
+  #app .search-bar kbd { font: inherit; font-size: 12px; line-height: 16px; padding: 2px 7px; border: 1px solid var(--line-2); border-radius: 4px; background: var(--gray-100); color: var(--ink-2); }
+  #app .qf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+  #app .qf-label { min-width: 64px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink-2); }
+  #app .qf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  #app .qf { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 9999px; background: #fff; color: var(--ink-2); font: inherit; font-size: 14px; line-height: 20px; font-weight: 500; cursor: pointer; }
+  #app .qf:hover { background: var(--gray-50); }
+  #app .qf[aria-pressed="true"] { background: var(--teal-50); border-color: var(--teal-500); color: var(--teal-700); font-weight: 600; }
+  #app .qf-n { min-width: 20px; padding: 0 6px; border-radius: 9999px; background: var(--gray-100); color: var(--ink-2); font-size: 12px; line-height: 18px; font-weight: 600; text-align: center; }
+  #app .qf[aria-pressed="true"] .qf-n { background: #fff; color: var(--teal-700); }
+  #app .qf-pri-urgent { border-color: var(--coral-500); }
+  #app .qf-pri-urgent[aria-pressed="true"] { background: var(--coral-500); border-color: var(--coral-500); color: var(--ink); }
+  #app .qf-pri-urgent[aria-pressed="true"] .qf-n { color: var(--ink); }
+  #app .qf-clear { margin-top: 4px; padding: 4px 0; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 14px; font-weight: 500; color: var(--teal-600); cursor: pointer; }
+  #app .qf-clear:hover { color: var(--teal-700); text-decoration: underline; }
+
+  /* Sort note and view switch */
+  #app .table-head { align-items: flex-end; margin-bottom: 12px; }
+  #app .table-head p { margin: 0; }
+  #app .sort-note { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--teal-700); }
+
+  /* Priority: a colored dot plus the word, so it reads differently from the status badges.
+     Existing colors only; urgent text uses --coral-700 (5.3:1 on white). */
+  #app .prio { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink-2); }
+  #app .prio::before { content: ""; width: 10px; height: 10px; border-radius: 9999px; background: var(--line-2); flex: none; }
+  #app .prio-urgent { color: var(--coral-700); font-weight: 600; }
+  #app .prio-urgent::before { background: var(--coral-700); }
+  #app .prio-high::before { background: var(--coral-500); }
+  #app .prio-medium::before { background: var(--teal-500); }
+  #app .prio-low::before { background: var(--line-2); }
+
+  /* Card view */
+  #app #cards { margin-bottom: 24px; align-items: start; } /* opening one card doesn't stretch its neighbors */
+  #app #cards > .empty { grid-column: 1 / -1; }
+  #app .ev-card { cursor: pointer; }
+  #app .ev-card.sel { border-color: var(--teal-500); }
+  #app .ev-card.arch .card-body { color: var(--ink-3); }
+  #app .ev-card .card-body { display: flex; flex-direction: column; height: 100%; }
+  #app .ev-card-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  #app .ev-card-title { margin-bottom: 12px; }
+  #app .ev-meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0 0 16px; }
+  #app .ev-meta > div { display: contents; }
+  #app .ev-meta dt { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink-3); }
+  #app .ev-meta dd { margin: 0; }
+  #app .ev-card-details { margin: 0 0 16px; padding: 12px; border-radius: 8px; background: var(--gray-50); cursor: default; }
+  #app .ev-card-details .dg { position: static; max-width: none; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px 16px; }
+  #app .ev-card-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+  #app .card-toggle { background: none; border: 0; padding: 4px 0; border-radius: 4px; font: inherit; font-weight: 500; color: var(--teal-600); cursor: pointer; }
+  #app .card-toggle:hover { color: var(--teal-700); text-decoration: underline; }
+</style>
+
+<!-- Dashboard logic (unchanged from the team's version except display: status badges, alerts, save messages) -->
+<script is:inline>
+var PR=['urgent','high','medium','low'],
+ST=['submitted','in_progress','scheduled','declined','cancelled','needs_followup','completed'],
+CAT=['public','private','tenant'];
+/* CHANGED (Assignment 7): the page no longer talks to Supabase directly. It calls the Express server
+   (see load() below), which checks the sign-in token and role before reading the database. */
+var CL={},CO={},RM={},D=[];
+function nm(m,id){return id==null?'—':(m[id]||String(id))}
+/* ADDED (design system): our statuses mapped onto the shared .status-<value> badge styles (no new colors). */
+var STATUS_CLASS={submitted:'pending',needs_followup:'needs_update',in_progress:'pending_review',scheduled:'approved',completed:'current',declined:'rejected',cancelled:'archived'};
+function badge(s){return '<span class="status status-'+(STATUS_CLASS[s]||'archived')+'">'+lab(s)+'</span>'}
+/* ADDED (design system): page messages as alerts. kind: 'error' | 'success' | 'info'. Empty text hides it. */
+function note(text,kind){var m=document.getElementById('roleMsg');m.hidden=!text;m.className=text?'alert alert-'+(kind||'info'):'';m.textContent=text||''}
+function setMsg(text,kind){var m=document.getElementById('msg');m.textContent=text;m.className=kind?'msg-'+kind:''}
+
+    var $ = function (i) { return document.getElementById(i) };
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+    function fmt(s) { return s ? new Date(s).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
+    function lab(s) { return String(s).replace(/_/g, ' ') }
+    /* ALTERED: uses scoped() instead of D so the Type filter list only contains values from
+       requests the current user is allowed to see (otherwise a client would see other clients' values). */
+    function uniq(k) { return scoped().map(function (x) { return x[k] }).filter(function (v, i, a) { return v != null && a.indexOf(v) === i }).sort(function (a, b) { return a > b ? 1 : -1 }) }
+    function opts(el, all, arr) { el.innerHTML = (all ? '<option value="">' + all + '</option>' : '') + arr.map(function (v) { return '<option value="' + esc(v) + '">' + esc(lab(v)) + '</option>' }).join('') }
+    // ADDED (Version B): builds a dropdown from an id -> name map. "all" adds a blank-value first option, "none" adds a "none" option last.
+    function optsMap(el, all, map, none) {
+      var h = all ? '<option value="">' + all + '</option>' : '';
+      h += Object.keys(map).map(function (k) { return '<option value="' + k + '">' + esc(map[k]) + '</option>' }).join('');
+      if (none) h += '<option value="none">' + none + '</option>';
+      el.innerHTML = h;
+    }
+    /* ALTERED: Room and Coordinator filter lists now show names (Version B), and for client users only the rooms
+       and coordinators that appear on their own requests (visibleMap, defined in the role section below). */
+    function buildFilters() {
+      var keep = { type: $('type').value, room: $('room').value, co: $('co').value };
+      opts($('type'), 'All types', uniq('type'));
+      optsMap($('room'), 'All rooms', visibleMap(RM, 'r'), 'No room assigned');
+      optsMap($('co'), 'All coordinators', visibleMap(CO, 'co'));
+      ['type', 'room', 'co'].forEach(function (k) { $(k).value = keep[k] });
+    }
+    opts($('cat'), 'All categories', CAT); opts($('st'), 'All statuses', ST); opts($('pri'), 'All priorities', PR); buildFilters();
+    // ADDED (Version B): Client filter list and the three name dropdowns in the update form (all clients, coordinators and the 7 rooms)
+    optsMap($('fc'), 'All clients', CL);
+    optsMap($('f_c'), '', CL); optsMap($('f_co'), '', CO); optsMap($('f_r'), 'No room assigned', RM);
+    opts($('f_cat'), '', CAT); opts($('f_pri'), '', PR); opts($('f_st'), '', ST);
+    // ALTERED (Version B): 12 columns. End, Guests and Created moved into the expandable detail row; headers renamed; Archive column added; Sq ft removed.
+    /* CHANGED (dashboard refresh): 9 columns. ID is in the details; Category shows under Type; the archived date shows under Archive. */
+    var QF = { pri: [], st: [] }; // ADDED: active quick filters
+    var COLS = [['name', 'Event'], ['st', 'Status'], ['c', 'Client'], ['s', 'Start'], ['r', 'Room'], ['type', 'Type'], ['pri', 'Priority'], ['co', 'Staff'], ['act', 'Archive']];
+    var SORTS = [['s:asc', 'Start (soonest)'], ['s:desc', 'Start (latest)'], ['cr:desc', 'Created (newest)'], ['cr:asc', 'Created (oldest)'], ['pri:asc', 'Priority (highest first)'], ['st:asc', 'Status'], ['att:desc', 'Attendance (largest)'], ['name:asc', 'Name A–Z']];
+    $('sort').innerHTML = SORTS.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>' }).join('');
+    // ALTERED (Version B): "recent" remembers rows archived since the filters last changed, so they don't vanish the moment you click Archive.
+    var key = 's', dir = 1, selId = null, openRows = {}, recent = {};
+    // ADDED (Version B): archive helpers. Archiving stamps the current local time; un-archiving clears it.
+    function doArchive(x) { if (x.ar) return; x.ar = nowLocal() }
+    function doUnarchive(x) { if (!x.ar) return; x.ar = null }
+    function nowLocal() { var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) }
+    // ALTERED (Version B): client, coordinator and room now sort by name instead of id.
+    function rank(k, v) { if (k === 'c') return CL[v]; if (k === 'co') return CO[v]; if (k === 'r') return v == null ? null : RM[v]; if (k === 'pri') return PR.indexOf(v); if (k === 'st') return ST.indexOf(v); return v }
+    function filtered() {
+      var q = $('q').value.toLowerCase(), f = { cat: $('cat').value, type: $('type').value, st: $('st').value, pri: $('pri').value, room: $('room').value, co: $('co').value, c: $('fc').value };
+      var amin = +$('amin').value || 0, d1 = $('d1').value, d2 = $('d2').value, arc = $('arc').checked;
+      /* ALTERED: filters scoped() instead of D, so a client only ever gets their own requests
+         (coordinators get everything). */
+      return scoped().filter(function (x) {
+        // ADDED: quick filters (Priority / Status buttons). Empty list = no limit.
+        if (QF.pri.length && QF.pri.indexOf(x.pri) < 0) return false;
+        if (QF.st.length && QF.st.indexOf(x.st) < 0) return false;
+        /* ALTERED (Show archived decision = Version A behavior): unchecked hides archived rows, checked shows active AND archived rows.
+           Rows archived since the last filter change stay visible (the "recent" exception, from Version B's archive buttons). */
+        if (!arc && x.ar && !recent[x.id]) return false;
+        if (f.cat && x.cat !== f.cat) return false; if (f.type && x.type !== f.type) return false;
+        if (f.st && x.st !== f.st) return false; if (f.pri && x.pri !== f.pri) return false;
+        if (f.co && String(x.co) !== f.co) return false;
+        if (f.c && String(x.c) !== f.c) return false; // ADDED (Version B): Client filter
+        if (f.room === 'none') { if (x.r != null) return false } else if (f.room && String(x.r) !== f.room) return false;
+        if (x.att < amin) return false;
+        if (d1 && x.s.slice(0, 10) < d1) return false; if (d2 && x.s.slice(0, 10) > d2) return false;
+        // ALTERED (Version B): search also matches client, coordinator and room names
+        if (q && (x.name + ' ' + x.type + ' ' + x.notes + ' ' + x.fur + ' ' + x.tech + ' ' + x.id + ' ' + nm(CL, x.c) + ' ' + nm(CO, x.co) + ' ' + nm(RM, x.r)).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+    }
+    /* CHANGED (dashboard refresh): one render() draws the table OR the cards from the same filtered,
+       sorted rows. The ID column moved into the details; Start shows date over time; Type shows the
+       category under it; Archive shows the archived date under its button. Same data, fewer columns. */
+    var view = 'table';
+    try { if (localStorage.getItem('dashView') === 'cards') view = 'cards' } catch (e) { }
+    var SORT_LABEL = { id: 'Request ID', name: 'Event', st: 'Status', c: 'Client', s: 'Start', r: 'Room', type: 'Type', cat: 'Category', pri: 'Priority', co: 'Staff', ar: 'Archived', cr: 'Created', att: 'Attendance' };
+    function sortText() {
+      var sel = $('sort');
+      if (sel.value && sel.selectedIndex >= 0) return sel.options[sel.selectedIndex].text;
+      // Plain-language direction for the sorted column (from a heading click)
+      var WORDS = { s: ['soonest first', 'latest first'], cr: ['oldest first', 'newest first'], ar: ['oldest first', 'newest first'], pri: ['highest first', 'lowest first'], st: ['workflow order', 'reverse workflow order'], att: ['smallest first', 'largest first'] };
+      var w = WORDS[key] || ['A–Z', 'Z–A'];
+      return (SORT_LABEL[key] || key) + ' (' + (dir > 0 ? w[0] : w[1]) + ')';
+    }
+    function fmtD(s) { return s ? new Date(s).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—' }
+    function fmtT(s) { return s ? new Date(s).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '' }
+    function when(s) { return s ? fmtD(s) + '<br><span class="small muted">' + fmtT(s) + '</span>' : '—' }
+    function prio(p) { return '<span class="prio prio-' + esc(p) + '">' + esc(lab(p)) + '</span>' }
+    function typeCell(x) { return esc(lab(x.type)) + '<br><span class="small muted">' + esc(x.cat) + '</span>' }
+    // Only coordinators get the Archive / Un-archive button (the SERVER also rejects others with 403)
+    function archiveBtn(x) { return currentRole === 'coordinator' ? '<button type="button" class="abtn btn btn-secondary btn-sm" data-id="' + x.id + '">' + (x.ar ? 'Un-archive' : 'Archive') + '</button>' : '' }
+    function archivedNote(x) { return x.ar ? '<span class="small muted archived-on">Archived ' + fmtD(x.ar) + '</span>' : '' }
+    function details(x) {
+      return '<div class="dg"><div><small>Request ID</small>#' + x.id + '</div><div><small>End</small>' + fmt(x.e) + '</div><div><small>Guests</small>' + x.att + '</div><div><small>Created</small>' + fmt(x.cr) + '</div><div><small>Furniture</small>' + esc(x.fur || '—') + '</div><div><small>Technology</small>' + esc(x.tech || '—') + '</div><div><small>Catering</small>' + esc(x.cater || '—') + '</div><div><small>Notes</small>' + esc(x.notes || '—') + '</div></div>';
+    }
+    /* ADDED: each cell is built by column key, so the column order can change. */
+    function cell(k, x) {
+      switch (k) {
+        case 'name': return '<td data-k="name">' + esc(x.name) + '</td>';
+        case 'st': return '<td data-k="st">' + badge(x.st) + '</td>';
+        case 'c': return '<td data-k="c">' + esc(nm(CL, x.c)) + '</td>';
+        case 's': return '<td data-k="s">' + when(x.s) + '</td>';
+        case 'r': return '<td data-k="r">' + esc(nm(RM, x.r)) + '</td>';
+        case 'type': return '<td data-k="type">' + typeCell(x) + '</td>';
+        case 'pri': return '<td data-k="pri"' + (x.pri === 'urgent' ? ' class="prio-cell-urgent"' : '') + '>' + prio(x.pri) + '</td>';
+        case 'co': return '<td data-k="co">' + esc(nm(CO, x.co)) + '</td>';
+        case 'act': return '<td data-k="act">' + (archiveBtn(x) || (x.ar ? '' : '—')) + archivedNote(x) + '</td>';
+      }
+      return '<td></td>';
+    }
+
+    /* ADDED: column layout (order + widths), remembered in this browser only. Reset columns restores it. */
+    var DEFAULT_COLS = COLS.slice(), colW = {}, MIN_W = 72;
+    try {
+      var savedCols = JSON.parse(localStorage.getItem('dashCols') || 'null');
+      if (savedCols && Array.isArray(savedCols.order)) {
+        var byKey = {}; DEFAULT_COLS.forEach(function (c) { byKey[c[0]] = c });
+        var ordered = savedCols.order.filter(function (k) { return byKey[k] }).map(function (k) { return byKey[k] });
+        DEFAULT_COLS.forEach(function (c) { if (ordered.indexOf(c) < 0) ordered.push(c) });
+        COLS = ordered;
+        colW = savedCols.w || {};
+      }
+    } catch (e) { }
+    function saveCols() { try { localStorage.setItem('dashCols', JSON.stringify({ order: COLS.map(function (c) { return c[0] }), w: colW })) } catch (e) { } }
+    function applyWidths() {
+      var fixed = Object.keys(colW).length > 0;
+      document.querySelector('#tblwrap table').style.tableLayout = fixed ? 'fixed' : '';
+      document.querySelectorAll('#thead th').forEach(function (th) { var w = colW[th.getAttribute('data-k')]; th.style.width = w ? w + 'px' : '' });
+    }
+    // Before the first resize, lock every column at its current width so only the dragged one changes
+    function captureWidths() {
+      if (Object.keys(colW).length) return;
+      document.querySelectorAll('#thead th').forEach(function (th) { colW[th.getAttribute('data-k')] = th.offsetWidth });
+    }
+    function moveCol(k, toIndex) {
+      var from = COLS.findIndex(function (c) { return c[0] === k }); if (from < 0) return;
+      var col = COLS.splice(from, 1)[0];
+      COLS.splice(Math.max(0, Math.min(toIndex, COLS.length)), 0, col);
+      saveCols(); render();
+      var th = document.querySelector('#thead th[data-k="' + k + '"]'); if (th) th.focus();
+    }
+
+    function card(x) {
+      var open = !!openRows[x.id];
+      return '<article class="ev-card card' + (x.ar ? ' arch' : '') + (x.id === selId ? ' sel' : '') + '" data-id="' + x.id + '"><div class="card-body">' +
+        '<div class="ev-card-top">' + badge(x.st) + (x.pri === 'urgent' ? '<span class="prio-pill-urgent">' + prio(x.pri) + '</span>' : prio(x.pri)) + '</div>' +
+        '<h3 class="ev-card-title">' + esc(x.name) + '</h3>' +
+        '<dl class="ev-meta">' +
+        '<div><dt>Client</dt><dd>' + esc(nm(CL, x.c)) + '</dd></div>' +
+        '<div><dt>Start</dt><dd>' + fmt(x.s) + '</dd></div>' +
+        '<div><dt>Room</dt><dd>' + esc(nm(RM, x.r)) + '</dd></div>' +
+        '<div><dt>Type</dt><dd>' + esc(lab(x.type)) + ' · ' + esc(x.cat) + '</dd></div>' +
+        '<div><dt>Staff</dt><dd>' + esc(nm(CO, x.co)) + '</dd></div>' +
+        '</dl>' +
+        (open ? '<div class="ev-card-details">' + details(x) + '</div>' : '') +
+        '<div class="ev-card-actions"><button type="button" class="card-toggle" aria-expanded="' + open + '">' + (open ? 'Hide details' : 'Show details') + '</button>' + archiveBtn(x) + '</div>' +
+        archivedNote(x) +
+        '</div></article>';
+    }
+    function render() {
+      var rows = filtered().sort(function (a, b) {
+        var x = rank(key, a[key]), y = rank(key, b[key]);
+        if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+        return (x > y ? 1 : x < y ? -1 : 0) * dir;
+      });
+      // Sorted column: teal heading, underline, arrow, and aria-sort for screen readers
+      $('thead').innerHTML = '<tr>' + COLS.map(function (c) {
+        var on = c[0] === key;
+        return '<th data-k="' + c[0] + '" class="' + (on ? 'on' : '') + '"' + (on ? ' aria-sort="' + (dir > 0 ? 'ascending' : 'descending') + '"' : '') +
+          ' draggable="true" tabindex="0" title="' + (c[0] === 'act' ? '' : 'Click to sort. ') + 'Drag to move. Drag the right edge to resize.">' +
+          '<span class="th-label">' + c[1] + (on ? ' <span class="ar" aria-hidden="true">' + (dir > 0 ? '▲' : '▼') + '</span>' : '') + '</span>' +
+          '<span class="col-resize" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize ' + c[1] + ' column (left and right arrow keys)"></span></th>'
+      }).join('') + '</tr>';
+      $('tbody').innerHTML = rows.length ? rows.map(function (x) {
+        return '<tr class="row' + (x.ar ? ' arch' : '') + (x.id === selId ? ' sel' : '') + '" data-id="' + x.id + '">' + COLS.map(function (c) { return cell(c[0], x) }).join('') + '</tr>' +
+          '<tr class="det" id="d' + x.id + '"' + (openRows[x.id] ? '' : ' hidden') + '><td colspan="' + COLS.length + '">' + details(x) + '</td></tr>';
+      }).join('') : '<tr><td colspan="' + COLS.length + '" class="empty">No event requests match these filters.</td></tr>';
+      $('cards').innerHTML = rows.length ? rows.map(card).join('') : '<p class="empty">No event requests match these filters.</p>';
+      $('tblwrap').hidden = view !== 'table';
+      $('cards').hidden = view !== 'cards';
+      $('vTable').setAttribute('aria-pressed', view === 'table');
+      $('vCards').setAttribute('aria-pressed', view === 'cards');
+      $('viewHint').textContent = view === 'table' ? 'Click a column heading to sort, or a row for details.' : 'Click a card for details. Change the order in Show filters → Sort by.';
+      // ALTERED: the total counts only the requests this user can see.
+      $('count').textContent = rows.length + ' of ' + scoped().length + ' requests shown';
+      $('sortNote').textContent = 'Sorted by ' + sortText();
+      applyWidths();
+      renderQuick();
+      $('colReset').hidden = view !== 'table';
+    }
+    /* ADDED: quick filter buttons with counts (counts use all visible requests, ignoring the quick filters themselves) */
+    function renderQuick() {
+      var base = scoped().filter(function (x) { return $('arc').checked || !x.ar });
+      function chips(group, values, extra) {
+        return values.map(function (v) {
+          var n = base.filter(function (x) { return x[group] === v }).length;
+          var on = QF[group].indexOf(v) >= 0;
+          return '<button type="button" class="qf' + (extra ? ' ' + extra(v) : '') + '" data-g="' + group + '" data-v="' + v + '" aria-pressed="' + on + '">' + esc(lab(v)) + ' <span class="qf-n">' + n + '</span></button>';
+        }).join('');
+      }
+      $('qfPri').innerHTML = chips('pri', PR, function (v) { return 'qf-pri-' + v });
+      $('qfSt').innerHTML = chips('st', ST);
+      $('qfClear').hidden = !(QF.pri.length || QF.st.length);
+    }
+    function toggleQuick(e) {
+      var b = e.target.closest('button.qf'); if (!b) return;
+      var g = b.getAttribute('data-g'), v = b.getAttribute('data-v'), i = QF[g].indexOf(v);
+      if (i >= 0) QF[g].splice(i, 1); else QF[g].push(v);
+      recent = {}; render();
+      var again = document.querySelector('button.qf[data-g="' + g + '"][data-v="' + v + '"]'); if (again) again.focus();
+    }
+    $('qfPri').addEventListener('click', toggleQuick);
+    $('qfSt').addEventListener('click', toggleQuick);
+    $('qfClear').addEventListener('click', function () { QF.pri = []; QF.st = []; render(); $('q').focus() });
+    // Search bar (moved out of the filter panel): same #q, so filtered() and Reset filters still use it
+    $('q').addEventListener('input', function () { recent = {}; render() });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== '/' || e.target.closest('input, select, textarea, [contenteditable]')) return;
+      e.preventDefault(); $('q').focus();
+    });
+    $('colReset').addEventListener('click', function () {
+      COLS = DEFAULT_COLS.slice(); colW = {};
+      try { localStorage.removeItem('dashCols') } catch (e) { }
+      render();
+    });
+
+    /* ADDED: resize columns by dragging a header's right edge (or arrow keys on the edge) */
+    var drag = null;
+    $('thead').addEventListener('pointerdown', function (e) {
+      var h = e.target.closest('.col-resize'); if (!h) return;
+      e.preventDefault(); e.stopPropagation();
+      captureWidths();
+      var th = h.parentNode;
+      drag = { k: th.getAttribute('data-k'), x: e.clientX, w: th.offsetWidth };
+      document.body.classList.add('col-resizing');
+    });
+    document.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      colW[drag.k] = Math.max(MIN_W, Math.round(drag.w + e.clientX - drag.x));
+      applyWidths();
+    });
+    document.addEventListener('pointerup', function () {
+      if (!drag) return;
+      drag = null; document.body.classList.remove('col-resizing'); saveCols();
+    });
+    $('thead').addEventListener('keydown', function (e) {
+      var h = e.target.closest('.col-resize');
+      if (h && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault(); captureWidths();
+        var k = h.parentNode.getAttribute('data-k');
+        colW[k] = Math.max(MIN_W, (colW[k] || h.parentNode.offsetWidth) + (e.key === 'ArrowRight' ? 16 : -16));
+        applyWidths(); saveCols(); return;
+      }
+      var th = e.target.closest('th'); if (!th || h) return;
+      var k2 = th.getAttribute('data-k'), i = COLS.findIndex(function (c) { return c[0] === k2 });
+      // Alt + arrow keys move the focused column; Enter or Space sorts by it
+      if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); moveCol(k2, i - 1) }
+      else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); moveCol(k2, i + 1) }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); th.click(); var again = document.querySelector('#thead th[data-k="' + k2 + '"]'); if (again) again.focus() }
+    });
+
+    /* ADDED: rearrange columns by dragging a header onto another */
+    var dragKey = null;
+    $('thead').addEventListener('dragstart', function (e) {
+      var th = e.target.closest('th');
+      if (!th || drag) { e.preventDefault(); return }
+      dragKey = th.getAttribute('data-k');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragKey);
+      th.classList.add('dragging');
+    });
+    $('thead').addEventListener('dragover', function (e) {
+      var th = e.target.closest('th'); if (!th || !dragKey) return;
+      e.preventDefault();
+      var after = e.clientX > th.getBoundingClientRect().left + th.offsetWidth / 2;
+      document.querySelectorAll('#thead th').forEach(function (t) { t.classList.remove('drop-before', 'drop-after') });
+      if (th.getAttribute('data-k') !== dragKey) th.classList.add(after ? 'drop-after' : 'drop-before');
+    });
+    $('thead').addEventListener('drop', function (e) {
+      var th = e.target.closest('th'); if (!th || !dragKey) return;
+      e.preventDefault();
+      var target = th.getAttribute('data-k');
+      if (target !== dragKey) {
+        var after = e.clientX > th.getBoundingClientRect().left + th.offsetWidth / 2;
+        var from = COLS.findIndex(function (c) { return c[0] === dragKey });
+        var to = COLS.findIndex(function (c) { return c[0] === target }) + (after ? 1 : 0);
+        moveCol(dragKey, from < to ? to - 1 : to);
+      }
+    });
+    $('thead').addEventListener('dragend', function () {
+      dragKey = null;
+      document.querySelectorAll('#thead th').forEach(function (t) { t.classList.remove('dragging', 'drop-before', 'drop-after') });
+    });
+    function setView(v) { view = v; try { localStorage.setItem('dashView', v) } catch (e) { } render() }
+    $('vTable').addEventListener('click', function () { setView('table') });
+    $('vCards').addEventListener('click', function () { setView('cards') });
+    document.querySelector('.filters').addEventListener('input', function (e) {
+      recent = {}; // ADDED (Version B): changing a filter clears the "recently archived" exception
+      if (e.target.id === 'sort') { var p = e.target.value.split(':'); key = p[0]; dir = p[1] === 'asc' ? 1 : -1 }
+      render();
+    });
+    $('thead').addEventListener('click', function (e) {
+      if (e.target.closest('.col-resize')) return; // resizing, not sorting
+      var th = e.target.closest('th'); if (!th) return;
+      var k = th.getAttribute('data-k'); if (k === 'act') return; // ALTERED (Version B): the Archive column can't be sorted
+      if (k === key) dir = -dir; else { key = k; dir = 1 }
+      $('sort').value = ''; render();
+    });
+    async function onListClick(e) {
+      // ADDED (Version B): clicking Archive / Un-archive changes the row's archived date without opening its details
+      var ab = e.target.closest('button.abtn');
+      if (ab) {
+        // ADDED guard: clients can't archive or un-archive (the buttons aren't drawn for them; the SERVER also rejects it with 403)
+        if (currentRole !== 'coordinator') { note('Clients are not allowed to update records.', 'error'); return }
+        var r = get(+ab.getAttribute('data-id'));
+        if (!r) return;
+        // CHANGED (Assignment 7): archiving is saved to the database through the server
+        var res = await window.wellspring.api('PATCH', '/api/events/' + r.id, { archived: !r.ar });
+        if (!res.ok) { note('Not saved: ' + res.data.error, 'error'); return }
+        if (!r.ar) recent[r.id] = true;
+        note((r.ar ? 'Un-archived' : 'Archived') + ' request #' + r.id + '.', 'success');
+        await load();
+        return
+      }
+      if (e.target.closest('.ev-card-details')) return; // reading a card's details doesn't close it
+      var tr = e.target.closest('tr.row, .ev-card'); if (!tr) return;
+      var id = +tr.getAttribute('data-id');
+      openRows[id] = !openRows[id]; selId = id;
+      if (!$('edit').hidden) loadForm(id);
+      render();
+    }
+    $('tbody').addEventListener('click', onListClick);
+    $('cards').addEventListener('click', onListClick);
+    $('reset').addEventListener('click', function () {
+      // ALTERED (Version B): brief "pressed" flash on the button, the new Client filter is also cleared, and "recent" is reset
+      var rb = this; rb.classList.add('flash'); setTimeout(function () { rb.classList.remove('flash') }, 250);
+      ['q', 'amin', 'd1', 'd2'].forEach(function (i) { $(i).value = '' });
+      ['cat', 'type', 'st', 'pri', 'room', 'co', 'fc'].forEach(function (i) { $(i).value = '' });
+      QF.pri = []; QF.st = []; // ADDED: quick filters too
+      $('arc').checked = false; $('sort').value = 's:asc'; key = 's'; dir = 1; recent = {}; render();
+    });
+ 
+    /* ---- Create / Read / Update ---- */
+    // Create is a placeholder for now (no handler yet).
+    // Read shows/hides the filters and the update panel; active filters stay applied while hidden.
+    $('bRead').addEventListener('click', function () {
+      var f = document.querySelector('.filters');
+      if (f.hidden) f.hidden = false;            // show filters (update panel left as is)
+      else if (!$('edit').hidden) $('edit').hidden = true; // update open: keep filters, close update
+      else { f.hidden = true; fgShown = false;} // ALTERED (Version B): plain read mode also hides the panel and clears Show filters / Show database
+      syncBtns();
+    });
+    function get(id) { for (var i = 0; i < D.length; i++)if (D[i].id === id) return D[i]; return null }
+    // ALTERED (Sq ft decision): sq removed from this list
+    var MAP = { name: 'name', cat: 'cat', type: 'type', c: 'c', co: 'co', r: 'r', s: 's', e: 'e', att: 'att', pri: 'pri', st: 'st', fur: 'fur', tech: 'tech', cater: 'cater', notes: 'notes' };
+    function fillPick() {
+      $('eid').innerHTML = D.map(function (x) { return '<option value="' + x.id + '">#' + x.id + ' – ' + esc(x.name) + '</option>' }).join('');
+      $('eid').value = selId;
+    }
+    function loadForm(id) {
+      var x = get(id); if (!x) return;
+      selId = id; $('eid').value = id; setMsg('');
+      Object.keys(MAP).forEach(function (k) { $('f_' + k).value = x[k] == null ? '' : x[k] });
+    }
+    // ALTERED (Version B layout): also keeps the Show filters / Show database buttons, filter grid, table and count in sync
+    function syncBtns() {
+      var f = !document.querySelector('.filters').hidden, u = !$('edit').hidden;
+      $('bRead').classList.toggle('on', f); $('bRead').setAttribute('aria-pressed', f);
+      $('bUpdate').classList.toggle('on', u); $('bUpdate').setAttribute('aria-pressed', u);
+      $('fgrid').hidden = !fgShown; $('showFil').classList.toggle('on', fgShown); $('showFil').setAttribute('aria-pressed', fgShown);
+    }
+    function showEdit(show) {
+      /* ALTERED: added this guard so a client can never open the update panel, even if the Update button
+         were somehow clicked. Everything below the guard is the original code, unchanged.
+         (currentRole is defined in the ADDED role section at the bottom of this script.) */
+      if (show && currentRole !== 'coordinator') {
+        note('Clients are not allowed to update records.', 'error');
+        return;
+      }
+      if (show && !D.length) { note('There are no requests to update.', 'info'); return }
+      $('edit').hidden = !show;
+      if (show) { if (selId == null || !get(selId)) selId = D[0].id; fillPick(); loadForm(selId) }
+      syncBtns();
+    }
+    $('bUpdate').addEventListener('click', function () { showEdit($('edit').hidden) });
+    $('bCancel').addEventListener('click', function () { showEdit(false) });
+    $('eid').addEventListener('change', function () { selId = +$('eid').value; loadForm(selId); render() });
+    // CHANGED (Assignment 7): Save sends only the changed fields to the server (PATCH /api/events/:id).
+    // The server checks that the user is staff and validates every value before saving.
+    $('bSave').addEventListener('click', async function () {
+      var x = get(+$('eid').value); if (!x) return;
+      var body = {};
+      if ($('f_st').value !== x.st) body.status = $('f_st').value;
+      if ($('f_pri').value !== x.pri) body.priority = $('f_pri').value;
+      if ($('f_co').value !== String(x.co)) body.co_id = $('f_co').value;
+      if ($('f_r').value !== (x.r == null ? '' : String(x.r))) body.r_id = $('f_r').value || null;
+      if (!Object.keys(body).length) { setMsg('No changes to save.', 'info'); return }
+      setMsg('Saving…', 'info');
+      var res = await window.wellspring.api('PATCH', '/api/events/' + x.id, body);
+      if (!res.ok) { setMsg('Not saved: ' + (res.data.errors || [res.data.error]).join(' '), 'err'); return }
+      selId = x.id; await load(); fillPick(); loadForm(x.id);
+      setMsg('Saved changes to #' + x.id + '.', 'ok');
+    });
+    /* ALTERED (Version B layout): Show database is now a button (it was a checkbox), and there is a new Show filters button.
+       fgShown / tblShown track whether the filter grid and the table are open. */
+    var fgShown = false;
+    $('showFil').addEventListener('click', function () { fgShown = !fgShown; syncBtns() });
+    $('sort').value = 's:asc'; render(); syncBtns();
+ 
+    /* ---- CHANGED (Assignment 7): roles come from real sign-in ----
+       The module script at the bottom signs the user in, asks the server for their role, and calls applyRole().
+       Any element with a data-role attribute is shown only to the roles listed in it (space-separated).
+       Hiding elements is only for convenience: the SERVER decides which rows are returned and who may update. */
+    var currentRole = '';
+    // The server already returns only the requests this user may see (clients: their own; staff: all).
+    function scoped() { return D; }
+    // ADDED: for client users, trims an id -> name map (rooms, coordinators) down to the ids that appear on their own requests,
+    // so their filter lists don't reveal other clients' rooms or staff. Coordinators get the full map.
+    function visibleMap(map, k) {
+      if (currentRole !== 'client') return map;
+      var out = {};
+      scoped().forEach(function (x) { if (x[k] != null && map[x[k]] != null) out[x[k]] = map[x[k]] });
+      return out;
+    }
+    // role is "client" or "coordinator" (staff); label is shown in the banner.
+    function applyRole(role, label) {
+      currentRole = role;
+      // Start each user with a clean view: clear the filters, rebuild the filter lists from only their rows, and redraw
+      $('reset').click(); buildFilters(); render();
+      $('app').hidden = !role;
+      document.querySelectorAll('[data-role]').forEach(function (el) {
+        el.hidden = !role || el.getAttribute('data-role').split(' ').indexOf(role) < 0;
+      });
+      if (role !== 'coordinator' && !$('edit').hidden) showEdit(false); // close the update panel if it was open
+      $('roleBanner').textContent = role ? 'Signed in as ' + label + '.' : '';
+      note('');
+    }
+
+  /* ---- CHANGED (Assignment 7): load data through the Express server ----
+     GET /api/events returns each event with its related client, room and coordinator rows. */
+function txt(v){return Array.isArray(v)?v.join(', '):(v==null?'':String(v))}
+function iso(v){
+  if(!v)return null;var d=new Date(v);if(isNaN(d))return null;
+  var p=function(n){return(n<10?'0':'')+n};
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+}
+async function load(){
+  var api=window.wellspring.api, staff=currentRole==='coordinator';
+  $('dbmsg').textContent='Loading data…';
+  // archived=1 so the "Show archived" checkbox can work on the page
+  var calls=[api('GET','/api/events?archived=1')];
+  if(staff)calls.push(api('GET','/api/rooms'),api('GET','/api/coordinators')); // full lists for the update dropdowns
+  var res=await Promise.all(calls);
+  if(!res[0].ok){$('dbmsg').textContent='Could not load data: '+res[0].data.error;return}
+  CL={};CO={};RM={};
+  res[0].data.forEach(function(r){
+    if(r.client)CL[r.c_id]=r.client.c_name;
+    if(r.coordinator)CO[r.co_id]=r.coordinator.co_name;
+    if(r.room)RM[r.r_id]=r.room.r_name;
+  });
+  if(staff&&res[1].ok)res[1].data.forEach(function(r){RM[r.r_id]=r.r_name+(r.r_status==='Available'?'':' ('+r.r_status+')')});
+  if(staff&&res[2].ok)res[2].data.forEach(function(c){CO[c.co_id]=c.co_name});
+  D=res[0].data.map(function(r){return{
+    id:r.e_id,c:r.c_id,co:r.co_id,r:r.r_id==null?null:r.r_id,
+    cat:r.e_category,type:r.e_type,name:r.e_name,
+    s:iso(r.e_start)||'',e:iso(r.e_end)||'',att:r.e_attendance,
+    fur:txt(r.e_furniture),tech:txt(r.e_tech),cater:txt(r.e_catering),notes:txt(r.e_notes),
+    pri:r.e_priority,st:r.e_status,cr:iso(r.e_created_at),ar:iso(r.e_archived_at)
+  }});
+  optsMap($('fc'),'All clients',CL);
+  optsMap($('f_c'),'',CL);optsMap($('f_co'),'',CO);optsMap($('f_r'),'No room assigned',RM);
+  buildFilters();$('dbmsg').textContent=D.length?'':'No event requests yet.';render();
+}
+</script>
+
+<!-- Sign-in check. Sends signed-out visitors to the sign-in page. -->
+<script type="module" is:inline>
+  import { requireSignIn, showStaffHeader, showAlert } from '/auth.js';
+  const me = await requireSignIn();
+  if (!me.isStaff && !me.client) location.href = '/login.html'; // new client: create profile first
+  showStaffHeader(me);
+  const label = me.email + (me.isStaff ? ' (staff)' : ' (client: ' + me.client.c_name + ')');
+  applyRole(me.isStaff ? 'coordinator' : 'client', label);
+
+  // Read the one-time success message left by eventForm
+  let flash = null;
+  try {
+    flash = JSON.parse(sessionStorage.getItem('flash'));
+    sessionStorage.removeItem('flash'); // show once only, so a refresh won't repeat it
+  } catch (e) {}
+
+  if (flash) {
+    showAlert(document.getElementById('flash'), 'success', flash.text); // textContent: user-typed title is not treated as HTML
+    if (flash.id) { openRows[flash.id] = true; selId = flash.id; } // open the new request's details row
+  }
+
+  await load();
+
+  if (flash && flash.id) {
+    const row = document.querySelector('tr.row[data-id="' + flash.id + '"], .ev-card[data-id="' + flash.id + '"]');
+    if (row) row.scrollIntoView({ block: 'center' });
+  }
+</script>
