@@ -1,0 +1,54 @@
+**Data dictionary**
+
+| Entity | Attribute | Description | Data Type | Required? | Key | Validation/Constraint |
+| :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| Client | C\_id | Primary key uniquely identifying clients within database | BIGINT | Yes | Primary | No repeating |
+|  | C\_type | The type of client (commercial, non-profit, etc.) | text | Yes | N/A | From a set list of options |
+|  | C\_name | Name of client | text | Yes | N/A | 50 character limit |
+|  | C\_email | Email of client | text | Yes | N/A | Must be valid email, 350 character limit |
+|  | C\_phone | Phone number of client | text | Yes | N/A | Must be valid phone number, digits only |
+|  | user\_id | Foreign key for user\_id in the roles logic. | UUID | No | Foreign | Must match existing key |
+| Inquiry | I\_id | Primary key uniquely identifying inquiry within database | BIGINT | Yes | Primary | No repeating |
+|  | C\_id | Foreign key referencing Client involved | BIGINT | Yes | Foreign | Must match existing key |
+|  | Co\_id | Foreign key referencing Coordinator involved | BIGINT | Yes | Foreign | Must match existing key |
+|  | I\_type | The type of inquiry (tour, spaces, general info, donation) | text | Yes | N/A | From a set list of options  |
+|  | I\_name | Name for referencing the inquiry | text | Yes | N/A | 50 character limit |
+|  | I\_bodytext | The question(s) within the inquiry | text | Yes | N/A | Character limit |
+|  | I\_priority | How high priority the inquiry is to respond to (for workflow) | text | Yes | N/A | From a set list of options, defaults to ‘Medium’ |
+|  | I\_status | What the status of the inquiry is ('submitted', 'in\_progress', 'declined', 'cancelled', 'needs\_followup', 'completed') | text | Yes | N/A | From a set list of options |
+|  | I\_created\_at | Timestamp of when the inquiry was created | DATETIME | Yes | N/A | Created by the database |
+|  | I\_archived\_at | Timestamp of when the inquiry was archived (default NULL) | DATETIME | No | N/A | Created by the database |
+|  | I\_notes | Notes about the inquiry (any information a coordinator wants to note about the inquiry for other coordinators to reference) | text | No | N/A | 2000 character limit |
+| Event Request | E\_id | Primary key identifying event request | BIGINT | Yes | Primary | No repeating |
+|  | C\_id | Foreign key referencing Client involved | BIGINT | Yes | Foreign | Must match existing key |
+|  | Co\_id | Foreign key referencing Coordinator involved | BIGINT | Yes | Foreign | Must match existing key |
+|  | R\_id | Foreign key referencing Room involved | BIGINT | No | Foreign | Must match existing key |
+|  | E\_category | References what category of event (public, private, tenant) | Text | Yes | N/A | From a set list of options  |
+|  | E\_type | References what type of event (wedding, birthday party, etc.) | Text | Yes | N/A | From a set list of options  |
+|  | E\_name | Gives the event a name for ease of use | Text | Yes | N/A | 200 character limit (this attribute was added) |
+|  | E\_start | Start time of the event | DATETIME | Yes | N/A | If the time is available  |
+|  | E\_end | Estimated ending time of the event | DATETIME | Yes | N/A | Between 30 minutes and 8 hours after the start time |
+|  | E\_attendance | How many people are expected to attend | Int | Yes | N/A | Between 2 and 350, cannot exceed capacity of room it’s assigned to |
+|  | E\_furniture | List of furniture they need  | Text | Yes | N/A | From a set list of options  |
+|  | E\_tech | List of technology they need | Text | Yes | N/A | From a set list of options  |
+|  | E\_catering | Catering details | text | No | N/A | 200 character limit |
+|  | E\_notes | Notes about the event (furniture or tech not listed on Wellspring options and the like) | text | No | N/A | 2000 character limit |
+|  | E\_priority | How high priority the event is to work on (for Rahmat’s workflow)('low', 'medium', 'high', 'urgent') | text | Yes | N/A | From a set list of options, defaults to ‘Medium’ |
+|  | E\_status | What the status of the event is ('submitted', 'in\_progress', 'scheduled', 'declined', 'cancelled', 'needs\_followup', 'completed') | text | Yes | N/A | From a set list of options |
+|  | E\_created\_at | Timestamp of when the event was created in the database | DATETIME | Yes | N/A | Created by the database |
+|  | E\_archived\_at | Timestamp of when the event was archived (default NULL) | DATETIME | No | N/A | Created by the database |
+| Room | R\_id | Primary key of room | BIGINT | Yes | Primary | No repeating |
+|  | R\_name | Name of room | text | Yes | N/A | N/A |
+|  | R\_capacity | How many people the room can hold | text | Yes | N/A | Cannot exceed |
+|  | R\_status | Whether the room is available, under renovation, or in a   different status | text | Yes | N/A | From a set list of options  |
+| Coordinator | Co\_id | Primary key of coordinator | BIGINT | Yes | Primary | No repeating |
+|  | Co\_name | Name of coordinator | text | Yes | N/A | 50 character limit |
+|  | Co\_email | Email of coordinator  | text | Yes | N/A | Must be valid email |
+|  | Co\_phone | Phone number of coordinator | text | Yes | N/A | Must be valid phone number, digits only |
+| User\_roles | user\_id | Id of user to be assigned a role | UUID | Yes  | Primary | No repeating |
+|  | role\_id | Role for granting authorization | int2 | Yes  | Foreign | Must match existing key |
+|  | granted\_at | Timestamp of when role was granted | DATETIME | Yes  | N/A | Created by the database |
+| Roles | roles\_id | Role for granting authorization | int2 | Yes  | Foreign | Must match existing key |
+|  | roles\_name | Name of the specific role | text | Yes  | N/A |  |
+| Auth.users  (external table, managed by Supabase Auth) | auth.users\_id | Unique identifier of an authenticated user | UUID | Yes  | Primary  | No repeating; generated by Supabase Auth |
+
